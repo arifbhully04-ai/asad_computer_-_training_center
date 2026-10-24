@@ -1,0 +1,6 @@
+{
+  "name": "Asad Computer & Training Center",
+  "description": "Professional Computer Office Application training, digital skills, and complete online application services.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

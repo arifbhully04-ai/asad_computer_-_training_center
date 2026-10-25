@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   CheckCircle,
+  AlertTriangle,
   Eye,
   EyeOff,
   GraduationCap,
@@ -9,16 +10,26 @@ import {
   Building,
   UserPlus,
   ArrowRight,
+  Lock,
+  User,
+  Phone,
+  Mail,
+  Briefcase,
 } from 'lucide-react';
+import { StudentAccount, ApplicantAccount } from '../types.ts';
 
 export type LoginRole = 'student' | 'applicant' | 'institute';
 
-interface LoginModalProps {
+export interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialRole?: LoginRole;
   initialMode?: 'login' | 'register';
-  onLoginSuccess?: (role: LoginRole) => void;
+  initialJobTitle?: string;
+  students?: StudentAccount[];
+  applicants?: ApplicantAccount[];
+  onRegisterApplicant?: (newApplicant: ApplicantAccount) => void;
+  onLoginSuccess?: (role: LoginRole, user?: StudentAccount | ApplicantAccount) => void;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({
@@ -26,6 +37,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   initialRole = 'applicant',
   initialMode = 'login',
+  initialJobTitle,
+  students = [],
+  applicants = [],
+  onRegisterApplicant,
   onLoginSuccess,
 }) => {
   const scrollOverlayRef = useRef<HTMLDivElement>(null);
@@ -36,9 +51,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [targetJob, setTargetJob] = useState(initialJobTitle || 'Computer Operator & Office Assistant');
   const [showPassword, setShowPassword] = useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
+
+  // Status & Error messaging states
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [suggestRegistration, setSuggestRegistration] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [successInfo, setSuccessInfo] = useState<string>('');
 
   useEffect(() => {
     if (initialRole) {
@@ -51,13 +72,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   }, [initialMode]);
 
   useEffect(() => {
+    if (initialJobTitle) {
+      setTargetJob(initialJobTitle);
+    }
+  }, [initialJobTitle]);
+
+  useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      setErrorMessage(null);
+      setSuggestRegistration(false);
+      setSubmitted(false);
       if (scrollOverlayRef.current) {
         scrollOverlayRef.current.scrollTop = 0;
       }
     } else {
       document.body.style.overflow = '';
+      setErrorMessage(null);
       setSubmitted(false);
     }
     return () => {
@@ -69,14 +100,162 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      onClose();
-      if (onLoginSuccess) {
-        onLoginSuccess(role);
+    setErrorMessage(null);
+    setSuggestRegistration(false);
+
+    // MODE 1: APPLICANT REGISTRATION
+    if (isRegisterMode) {
+      if (!fullName.trim() || !phone.trim() || !emailOrId.trim() || !password.trim()) {
+        setErrorMessage('অনুগ্রহ করে সকল তথ্য পূরণ করুন।');
+        return;
       }
-    }, 1200);
+
+      // Check if applicant already exists with same phone or email
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const existing = applicants.find(
+        (a) =>
+          a.email.toLowerCase() === emailOrId.trim().toLowerCase() ||
+          a.phone.replace(/[^0-9]/g, '') === cleanPhone
+      );
+
+      if (existing) {
+        setErrorMessage('এই মোবাইল বা ইমেইল দিয়ে ইতিমধ্যে অ্যাকাউন্ট রয়েছে! অনুগ্রহ করে সরাসরি লগইন করুন।');
+        setSuggestRegistration(false);
+        return;
+      }
+
+      // Create new Applicant Account
+      const newApplicant: ApplicantAccount = {
+        id: Date.now(),
+        applicantName: fullName.trim(),
+        phone: phone.trim(),
+        email: emailOrId.trim(),
+        password: password,
+        jobTitle: targetJob || 'Computer Operator & Office Assistant',
+        feeStatus: 'Paid',
+        feeAmount: 220,
+        admitStatus: 'Processing',
+        appliedDate: 'Today (Online)',
+        rollNo: `ACTC-${Math.floor(100000 + Math.random() * 900000)}`,
+      };
+
+      if (onRegisterApplicant) {
+        onRegisterApplicant(newApplicant);
+      }
+
+      setSuccessInfo(`রেজিস্ট্রেশন সফল হয়েছে! স্বাগতম, ${newApplicant.applicantName}। আপনার প্রোফাইলে নিয়ে যাওয়া হচ্ছে...`);
+      setSubmitted(true);
+
+      setTimeout(() => {
+        setSubmitted(false);
+        onClose();
+        if (onLoginSuccess) {
+          onLoginSuccess('applicant', newApplicant);
+        }
+      }, 1200);
+
+      return;
+    }
+
+    // MODE 2: LOGIN VALIDATION
+    const query = emailOrId.trim().toLowerCase();
+    const cleanPhoneQuery = emailOrId.replace(/[^0-9]/g, '');
+
+    // A. APPLICANT LOGIN
+    if (role === 'applicant') {
+      const found = applicants.find(
+        (a) =>
+          a.email.toLowerCase() === query ||
+          (cleanPhoneQuery.length >= 8 && a.phone.replace(/[^0-9]/g, '').includes(cleanPhoneQuery)) ||
+          (a.rollNo && a.rollNo.toLowerCase() === query)
+      );
+
+      // Rule: "আগে থেকেই ইউজার সেভ না থাকলে লগইন হবেনা রেজিষ্ট্রেশন করতে হবে"
+      if (!found) {
+        setErrorMessage('এই তথ্য দিয়ে কোনো এপ্লিকেন্ট অ্যাকাউন্ট পাওয়া যায়নি! আগে থেকেই ডাটাবেজে ইউজার সেভ না থাকলে লগইন হবে না। অনুগ্রহ করে প্রথমে রেজিস্ট্রেশন করুন।');
+        setSuggestRegistration(true);
+        return;
+      }
+
+      // Password Validation
+      const validPass = found.password || 'applicantpass';
+      if (password !== validPass) {
+        setErrorMessage('ভুল পাসওয়ার্ড! অনুগ্রহ করে সঠিক পাসওয়ার্ড দিন।');
+        return;
+      }
+
+      setSuccessInfo(`লগইন সফল হয়েছে! স্বাগতম, ${found.applicantName}। আপনার প্রোফাইলে নিয়ে যাওয়া হচ্ছে...`);
+      setSubmitted(true);
+
+      setTimeout(() => {
+        setSubmitted(false);
+        onClose();
+        if (onLoginSuccess) {
+          onLoginSuccess('applicant', found);
+        }
+      }, 1000);
+
+      return;
+    }
+
+    // B. STUDENT LOGIN
+    if (role === 'student') {
+      const found = students.find(
+        (s) =>
+          s.rollNo.toLowerCase() === query ||
+          s.email.toLowerCase() === query ||
+          (cleanPhoneQuery.length >= 8 && s.phone.replace(/[^0-9]/g, '').includes(cleanPhoneQuery))
+      );
+
+      if (!found) {
+        setErrorMessage('এই রোল নম্বর বা ইমেইল দিয়ে কোনো স্টুডেন্ট অ্যাকাউন্ট পাওয়া যায়নি! স্টুডেন্ট হিসেবে ভর্তিকৃত না থাকলে লগইন হবে না। প্রতিষ্ঠানে যোগাযোগ করুন।');
+        return;
+      }
+
+      const validPass = found.password || 'password123';
+      if (password !== validPass) {
+        setErrorMessage('ভুল পাসওয়ার্ড! অনুগ্রহ করে সঠিক পাসওয়ার্ড দিন।');
+        return;
+      }
+
+      setSuccessInfo(`লগইন সফল হয়েছে! স্বাগতম, ${found.name}। আপনার স্টুডেন্ট ড্যাশবোর্ডে নিয়ে যাওয়া হচ্ছে...`);
+      setSubmitted(true);
+
+      setTimeout(() => {
+        setSubmitted(false);
+        onClose();
+        if (onLoginSuccess) {
+          onLoginSuccess('student', found);
+        }
+      }, 1000);
+
+      return;
+    }
+
+    // C. INSTITUTE / ADMIN LOGIN
+    if (role === 'institute') {
+      const validAdmins = ['admin', 'admin@asadcomputer.com', '01773733654', 'bhulli.postoffice@gmail.com'];
+      const validPasswords = ['admin123', 'asad2026', '123456'];
+
+      const isAdminUser = validAdmins.includes(query) || validAdmins.includes(cleanPhoneQuery);
+      const isPassValid = validPasswords.includes(password);
+
+      if (!isAdminUser || !isPassValid) {
+        setErrorMessage('অ্যাডমিন ইউজারনেম বা পাসওয়ার্ড সঠিক নয়! সঠিক তথ্য দিয়ে চেষ্টা করুন।');
+        return;
+      }
+
+      setSuccessInfo('অ্যাডমিনিস্ট্রেটর লগইন সফল হয়েছে! অ্যাডমিন প্যানেলে নিয়ে যাওয়া হচ্ছে...');
+      setSubmitted(true);
+
+      setTimeout(() => {
+        setSubmitted(false);
+        onClose();
+        if (onLoginSuccess) {
+          onLoginSuccess('institute');
+        }
+      }, 1000);
+    }
   };
 
   const getRoleTitle = () => {
@@ -88,10 +267,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const getRoleSubtitle = () => {
     if (isRegisterMode) {
-      return 'Create your account to apply for job circulars and admission';
+      return 'Create your new applicant account to apply for circulars and track results';
     }
     if (role === 'student') {
-      return 'Access your Computer Office Application courses, typing records & certificates';
+      return 'Access your Computer Office Application courses, typing records & fee balance';
     }
     if (role === 'institute') {
       return 'Staff and administrative portal for Asad Computer & Training Center';
@@ -120,7 +299,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
         {/* Left Side: Photo Background with Headline & Subtitle matching reference image */}
         <div className="relative flex-1 p-8 sm:p-12 flex flex-col justify-between overflow-hidden min-h-[260px] md:min-h-auto">
-          {/* Background Handshake / Interview Image */}
           <img
             src="/src/assets/images/login_interview_handshake_1792830731033.jpg"
             alt="Business handshake"
@@ -129,7 +307,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60" />
 
-          {/* Top Left: Circular Stylized Brand Badge matching reference */}
+          {/* Top Left Brand Badge */}
           <div className="relative z-10 flex items-center space-x-2">
             <div className="w-12 h-12 rounded-full border border-teal-300/60 bg-teal-900/40 backdrop-blur-xs flex items-center justify-center text-center p-1 shadow-md">
               <span className="font-signature text-teal-200 text-lg leading-none transform -rotate-6">
@@ -141,7 +319,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </span>
           </div>
 
-          {/* Left Hero Copy matching reference image */}
+          {/* Hero Copy */}
           <div className="relative z-10 my-auto py-8">
             <h2 className="text-3xl sm:text-4xl md:text-[42px] font-bold text-white tracking-tight leading-[1.15] drop-shadow-md">
               Understand. Innovate.<br />
@@ -159,7 +337,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
         </div>
 
-        {/* Right Side: Clean White Floating Form Card matching reference image */}
+        {/* Right Side: Floating Form Card */}
         <div className="w-full md:w-[460px] bg-white p-6 sm:p-9 flex flex-col justify-center relative">
           
           {submitted ? (
@@ -168,218 +346,304 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <h3 className="text-2xl font-bold text-stone-900">
                 {isRegisterMode ? 'Registration Successful!' : 'Welcome Back!'}
               </h3>
-              <p className="text-stone-500 text-xs sm:text-sm mt-2">
-                {isRegisterMode
-                  ? 'Your applicant ID has been created.'
-                  : `Authenticated successfully into ${getRoleTitle()}...`}
+              <p className="text-stone-600 text-xs sm:text-sm mt-2 max-w-xs">
+                {successInfo || 'Redirecting to your dashboard profile...'}
               </p>
             </div>
           ) : (
             <div>
               {/* Role Selector Tabs (Student Login | Applicant Login | Institute Login) */}
               {!isRegisterMode && (
-                <div className="grid grid-cols-3 gap-1 p-1 bg-stone-100 rounded-lg mb-6 text-[11px] font-semibold">
+                <div className="grid grid-cols-3 gap-1 p-1 bg-stone-100 rounded-lg mb-5 text-[11px] font-semibold">
                   <button
                     type="button"
-                    onClick={() => setRole('student')}
+                    onClick={() => {
+                      setRole('applicant');
+                      setErrorMessage(null);
+                    }}
+                    className={`py-2 px-1 rounded flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
+                      role === 'applicant'
+                        ? 'bg-white text-emerald-700 shadow-xs font-bold'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    <UserCheck className="w-4 h-4 text-emerald-600" />
+                    <span className="truncate">Applicant</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRole('student');
+                      setErrorMessage(null);
+                    }}
                     className={`py-2 px-1 rounded flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                       role === 'student'
                         ? 'bg-white text-blue-700 shadow-xs font-bold'
                         : 'text-stone-600 hover:text-stone-900'
                     }`}
                   >
-                    <GraduationCap className="w-4 h-4" />
+                    <GraduationCap className="w-4 h-4 text-blue-600" />
                     <span className="truncate">Student</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setRole('applicant')}
-                    className={`py-2 px-1 rounded flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
-                      role === 'applicant'
-                        ? 'bg-white text-blue-700 shadow-xs font-bold'
-                        : 'text-stone-600 hover:text-stone-900'
-                    }`}
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    <span className="truncate">Applicant</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setRole('institute')}
+                    onClick={() => {
+                      setRole('institute');
+                      setErrorMessage(null);
+                    }}
                     className={`py-2 px-1 rounded flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                       role === 'institute'
-                        ? 'bg-white text-blue-700 shadow-xs font-bold'
+                        ? 'bg-white text-purple-700 shadow-xs font-bold'
                         : 'text-stone-600 hover:text-stone-900'
                     }`}
                   >
-                    <Building className="w-4 h-4" />
+                    <Building className="w-4 h-4 text-purple-600" />
                     <span className="truncate">Institute</span>
                   </button>
                 </div>
               )}
 
               {/* Title & Subtitle */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <h3 className="text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight">
                   {getRoleTitle()}
                 </h3>
-                <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
+                <p className="text-xs text-stone-500 mt-1 leading-relaxed">
                   {getRoleSubtitle()}
                 </p>
               </div>
 
+              {/* Error Message Alert (with Quick Switch to Register) */}
+              {errorMessage && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                  <div className="flex items-start space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-semibold leading-relaxed">{errorMessage}</p>
+                      {suggestRegistration && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsRegisterMode(true);
+                            setErrorMessage(null);
+                            if (emailOrId.includes('@')) {
+                              setEmailOrId(emailOrId);
+                            } else {
+                              setPhone(emailOrId);
+                            }
+                          }}
+                          className="mt-2 inline-flex items-center space-x-1 px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded text-[11px] transition-colors cursor-pointer"
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          <span>এখনই রেজিস্ট্রেশন করুন (Register Now)</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Form Fields */}
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
                 {isRegisterMode ? (
                   <>
                     <div>
-                      <label className="block text-xs font-semibold text-stone-600 mb-1">
-                        Full Name
+                      <label className="block font-semibold text-stone-700 mb-1">
+                        Full Name (পূর্ণ নাম)
                       </label>
                       <input
                         type="text"
                         required
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Applicant's Full Name"
-                        className="w-full border-b border-stone-300 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-blue-600 outline-none transition-colors"
+                        placeholder="e.g. মোঃ রাশেদুল ইসলাম"
+                        className="w-full border border-stone-300 rounded-lg p-2 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-stone-600 mb-1">
-                        Mobile Number
+                      <label className="block font-semibold text-stone-700 mb-1">
+                        Mobile Number (মোবাইল নম্বর)
                       </label>
                       <input
                         type="tel"
                         required
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        placeholder="01XXXXXXXXX"
-                        className="w-full border-b border-stone-300 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-blue-600 outline-none transition-colors"
+                        placeholder="017XXXXXXXX"
+                        className="w-full border border-stone-300 rounded-lg p-2 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors font-mono"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-stone-600 mb-1">
-                        Email Address
+                      <label className="block font-semibold text-stone-700 mb-1">
+                        Email Address (ইমেইল এড্রেস)
                       </label>
                       <input
                         type="email"
                         required
                         value={emailOrId}
                         onChange={(e) => setEmailOrId(e.target.value)}
-                        placeholder="Your@email.com"
-                        className="w-full border-b border-stone-300 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-blue-600 outline-none transition-colors"
+                        placeholder="applicant@gmail.com"
+                        className="w-full border border-stone-300 rounded-lg p-2 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-stone-700 mb-1">
+                        Applied Job Circular / Subject
+                      </label>
+                      <input
+                        type="text"
+                        value={targetJob}
+                        onChange={(e) => setTargetJob(e.target.value)}
+                        placeholder="e.g. Computer Operator & Office Assistant"
+                        className="w-full border border-stone-300 rounded-lg p-2 text-stone-800 bg-stone-50 outline-none"
                       />
                     </div>
                   </>
                 ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-stone-600 mb-1">
+                    <label className="block font-semibold text-stone-700 mb-1">
                       {role === 'student'
-                        ? 'Student ID or Email'
+                        ? 'Student Roll Number, Email or Phone'
                         : role === 'institute'
-                        ? 'Admin Username / Email'
-                        : 'Applicant Mobile or Email'}
+                        ? 'Admin Username, Mobile or Email'
+                        : 'Applicant Mobile Number or Email'}
                     </label>
                     <input
                       type="text"
                       required
                       value={emailOrId}
-                      onChange={(e) => setEmailOrId(e.target.value)}
+                      onChange={(e) => {
+                        setEmailOrId(e.target.value);
+                        setErrorMessage(null);
+                      }}
                       placeholder={
                         role === 'student'
-                          ? 'ACTC-2026-001 or Your@email.com'
+                          ? 'e.g. ACTC-2026-084 or 01712-345678'
                           : role === 'institute'
-                          ? 'admin@asadcomputer.com'
-                          : '017XXXXXXXX or Your@email.com'
+                          ? 'admin or bhulli.postoffice@gmail.com'
+                          : '01773-733654 or email@gmail.com'
                       }
-                      className="w-full border-b border-stone-300 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-blue-600 outline-none transition-colors"
+                      className="w-full border border-stone-300 rounded-lg p-2.5 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors"
                     />
                   </div>
                 )}
 
                 {/* Password Field */}
-                <div className="relative">
-                  <label className="block text-xs font-semibold text-stone-600 mb-1">
-                    Password
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">
+                    Password (পাসওয়ার্ড)
                   </label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full border-b border-stone-300 py-2 pr-8 text-sm text-stone-900 placeholder:text-stone-400 focus:border-blue-600 outline-none transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-0 bottom-2 text-stone-400 hover:text-stone-700 p-1 cursor-pointer"
-                    aria-label="Toggle password view"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setErrorMessage(null);
+                      }}
+                      placeholder="Enter your login password"
+                      className="w-full border border-stone-300 rounded-lg p-2.5 pr-10 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-0.5 cursor-pointer"
+                      aria-label="Toggle password view"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
+
+                {/* Helper Notes for quick testing / login */}
+                {!isRegisterMode && (
+                  <div className="text-[11px] text-stone-500 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                    {role === 'applicant' && (
+                      <span>
+                        * সংরক্ষিত এপ্লিকেন্ট মোবাইল: <strong>01773-733654</strong> (পাসওয়ার্ড: <code>applicantpass</code>) অথবা নিচে রেজিস্ট্রেশন করুন।
+                      </span>
+                    )}
+                    {role === 'student' && (
+                      <span>
+                        * সংরক্ষিত স্টুডেন্ট রোল: <strong>ACTC-2026-084</strong> (পাসওয়ার্ড: <code>password123</code>)
+                      </span>
+                    )}
+                    {role === 'institute' && (
+                      <span>
+                        * এডমিন ইউজার: <strong>admin</strong> (পাসওয়ার্ড: <code>admin123</code>)
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Keep me logged in & Forgot Password */}
                 {!isRegisterMode && (
-                  <div className="flex items-center justify-between text-xs pt-1">
+                  <div className="flex items-center justify-between text-xs pt-0.5">
                     <label className="flex items-center space-x-2 text-stone-600 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={keepLoggedIn}
                         onChange={(e) => setKeepLoggedIn(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded border-stone-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
+                        className="w-3.5 h-3.5 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
                       />
-                      <span>Keep me logged In</span>
+                      <span>Keep me logged in</span>
                     </label>
 
                     <button
                       type="button"
-                      onClick={() => alert('Password reset PIN will be sent to your mobile or email.')}
-                      className="text-blue-600 hover:underline font-medium cursor-pointer"
+                      onClick={() => alert('Password reset helpline: 01773-733654 or visit Bottola, Bhully Bazar center.')}
+                      className="text-emerald-700 hover:underline font-medium cursor-pointer"
                     >
-                      Forgot Password
+                      Forgot Password?
                     </button>
                   </div>
                 )}
 
-                {/* Sign In Button: Blue, Rounded-full, uppercase matching reference */}
+                {/* Submit Action Button */}
                 <button
                   type="submit"
-                  className="w-full py-3.5 bg-[#2f4cb3] hover:bg-[#253e99] text-white font-bold text-xs uppercase tracking-wider rounded-full transition-colors shadow-md hover:shadow-lg mt-5 cursor-pointer"
+                  className="w-full py-3 bg-[#00897b] hover:bg-[#00796b] text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-colors shadow-md hover:shadow-lg mt-3 cursor-pointer flex items-center justify-center space-x-2"
                 >
-                  {isRegisterMode ? 'REGISTER APPLICANT ACCOUNT' : 'SIGN IN'}
+                  <span>{isRegisterMode ? 'Complete Registration & Open Profile' : 'Sign In to Profile'}</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
 
-              {/* Dedicated Applicant Registration Button / Switch as requested */}
-              <div className="mt-6 pt-4 border-t border-stone-200">
+              {/* Dedicated Applicant Registration Switch */}
+              <div className="mt-4 pt-3 border-t border-stone-200">
                 {isRegisterMode ? (
                   <div className="text-center text-xs text-stone-600">
-                    Already registered?{' '}
+                    ইতিমধ্যে রেজিস্ট্রেশন করা আছে?{' '}
                     <button
                       type="button"
-                      onClick={() => setIsRegisterMode(false)}
-                      className="text-blue-600 hover:underline font-bold cursor-pointer"
+                      onClick={() => {
+                        setIsRegisterMode(false);
+                        setErrorMessage(null);
+                      }}
+                      className="text-emerald-700 hover:underline font-bold cursor-pointer"
                     >
-                      Sign In Here
+                      এখানে সরাসরি লগইন করুন
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center space-y-2">
-                    <span className="text-[11px] text-stone-500">Need a new applicant profile?</span>
+                  <div className="flex flex-col items-center space-y-1.5">
+                    <span className="text-[11px] text-stone-500">নতুন এপ্লিকেন্ট অ্যাকাউন্ট নেই?</span>
                     <button
                       type="button"
-                      onClick={() => setIsRegisterMode(true)}
+                      onClick={() => {
+                        setIsRegisterMode(true);
+                        setErrorMessage(null);
+                      }}
                       className="w-full py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer border border-stone-300"
                     >
-                      <UserPlus className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Applicant Registration</span>
+                      <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Applicant Registration (নতুন রেজিস্ট্রেশন)</span>
                     </button>
                   </div>
                 )}

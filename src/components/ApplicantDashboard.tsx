@@ -11,15 +11,21 @@ import {
   LogOut,
   Bell,
   Eye,
+  UserPlus,
+  Edit,
+  Printer,
+  Sparkles,
 } from 'lucide-react';
 import { ApplicantAccount, NoticeItem } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
+import { ApplicantBioDataModal } from './ApplicantBioDataModal.tsx';
 
 interface ApplicantDashboardProps {
   onLogout: () => void;
   onBackToHome: () => void;
   onOpenJobPortal?: () => void;
   applicantData?: ApplicantAccount;
+  onUpdateApplicant?: (applicant: ApplicantAccount) => void;
   notices?: NoticeItem[];
 }
 
@@ -28,11 +34,14 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
   onBackToHome,
   onOpenJobPortal,
   applicantData,
+  onUpdateApplicant,
   notices = [],
 }) => {
   const [activeTab, setActiveTab] = useState('applications');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNoticeForPdf, setSelectedNoticeForPdf] = useState<NoticeItem | null>(null);
+  const [showBioDataModal, setShowBioDataModal] = useState(false);
+  const [bioDataModalTab, setBioDataModalTab] = useState<'form' | 'copy'>('form');
 
   const applicant = applicantData || {
     id: 1,
@@ -108,7 +117,24 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                 </span>
               </div>
 
-              <nav className="mt-6 space-y-1 text-xs">
+              <nav className="mt-6 space-y-1.5 text-xs">
+                {/* Prominent Creat a Account button as requested by user */}
+                <button
+                  onClick={() => {
+                    setBioDataModalTab('form');
+                    setShowBioDataModal(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md transition-all cursor-pointer mb-2 border border-emerald-400/30"
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <UserPlus className="w-4 h-4 text-emerald-100" />
+                    <span>Creat a Account</span>
+                  </div>
+                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded text-white font-mono">
+                    {applicant.isAccountCompleted ? 'Saved' : 'Form'}
+                  </span>
+                </button>
+
                 <button
                   onClick={() => setActiveTab('applications')}
                   className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium transition-colors cursor-pointer ${
@@ -119,6 +145,17 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                 >
                   <Briefcase className="w-4 h-4" />
                   <span>My Applications</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setBioDataModalTab('copy');
+                    setShowBioDataModal(true);
+                  }}
+                  className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium text-stone-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-blue-400" />
+                  <span>Applicant's Copy (PDF)</span>
                 </button>
 
                 <button
@@ -164,7 +201,7 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
           {/* Middle Main Content */}
           <main className="flex-1 p-5 sm:p-7 md:p-8 flex flex-col justify-between overflow-y-auto">
             <div>
-              <div className="flex items-center justify-between gap-4 mb-6">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
                 <div className="relative flex-1 max-w-md">
                   <Search className="w-4 h-4 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <input
@@ -176,9 +213,68 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                   />
                 </div>
 
-                <div className="hidden sm:flex items-center space-x-2 text-xs text-stone-600 bg-white px-3 py-1.5 rounded-full shadow-xs border border-stone-200">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Verified Applicant Account</span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setBioDataModalTab('form');
+                      setShowBioDataModal(true);
+                    }}
+                    className="flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-full shadow-md transition-all cursor-pointer border border-emerald-400/30"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Creat a Account</span>
+                  </button>
+
+                  <div className="hidden md:flex items-center space-x-2 text-xs text-stone-600 bg-white px-3 py-1.5 rounded-full shadow-xs border border-stone-200">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Verified Applicant</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Bio-Data Status Notice Banner */}
+              <div className="mb-6 bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center space-x-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-bold text-stone-900 text-sm">
+                        আবেদনকারীর পূর্ণাঙ্গ বায়োডাটা প্রোফাইল
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        {applicant.isAccountCompleted ? '✓ সংরক্ষিত' : 'ফরম পূরণ করুন'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      একবার পূরণ করলে তথ্য স্থায়ীভাবে সেভ থাকবে। নতুন কোন চাকুরীতে আবেদনের সময় সরাসরি এই তথ্য যাবে।
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      setBioDataModalTab('form');
+                      setShowBioDataModal(true);
+                    }}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Creat a Account / এডিট</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setBioDataModalTab('copy');
+                      setShowBioDataModal(true);
+                    }}
+                    className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold rounded-xl border border-stone-300 transition-colors flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-blue-600" />
+                    <span>অফিসিয়াল কপি</span>
+                  </button>
                 </div>
               </div>
 
@@ -247,26 +343,31 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-3 self-end sm:self-auto">
+                      <div className="flex items-center space-x-2 self-end sm:self-auto">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${app.statusColor}`}>
                           {app.status}
                         </span>
 
-                        {app.admitReady ? (
+                        <button
+                          onClick={() => {
+                            setBioDataModalTab('copy');
+                            setShowBioDataModal(true);
+                          }}
+                          className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded transition-colors flex items-center space-x-1 cursor-pointer border border-stone-300"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Applicant Copy</span>
+                        </button>
+
+                        {app.admitReady && (
                           <button
-                            onClick={() => alert(`Downloading Admit Card for ${app.title}`)}
+                            onClick={() => {
+                              alert(`Admit Card for ${app.title} is ready. Roll: ${applicant.rollNo || '819204'}. Contact Asad Computer desk at Bottola, Bhully Bazar for high quality color laser print!`);
+                            }}
                             className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded transition-colors flex items-center space-x-1 cursor-pointer"
                           >
                             <Download className="w-3.5 h-3.5" />
                             <span>Admit Card</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => alert(`Downloading Submitted Application Copy`)}
-                            className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded transition-colors flex items-center space-x-1 cursor-pointer"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Applicant Copy</span>
                           </button>
                         )}
                       </div>
@@ -331,6 +432,16 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
 
         </div>
       </div>
+
+      <ApplicantBioDataModal
+        isOpen={showBioDataModal}
+        onClose={() => setShowBioDataModal(false)}
+        applicant={applicant}
+        initialTab={bioDataModalTab}
+        onSaveApplicant={(updated) => {
+          onUpdateApplicant?.(updated);
+        }}
+      />
 
       <NoticePdfViewerModal
         isOpen={Boolean(selectedNoticeForPdf)}

@@ -148,15 +148,84 @@ export default function App() {
     {
       id: 1,
       applicantName: 'Rashidul Islam',
+      nameBangla: 'রাশিদুল ইসলাম',
+      fatherName: 'Md. Rafiqul Islam',
+      fatherNameBangla: 'মোঃ রফিকুল ইসলাম',
+      motherName: 'Mst. Rokeya Begum',
+      motherNameBangla: 'মোছাঃ রোকেয়া বেগম',
+      dob: '1998-05-14',
+      ageText: '28 Years 05 Months 10 Days',
+      gender: 'Male',
+      nationality: 'Bangladeshi',
+      religion: 'Islam',
+      nidNumber: '19989419400000124',
+      birthRegNo: '19989419400012345',
+      passportId: 'N/A',
+      maritalStatus: 'Single',
+      quota: 'Non-Quota',
+      departmentalStatus: 'None',
       phone: '01773-733654',
       email: 'rashidul.applicant@gmail.com',
       password: 'applicantpass',
       jobTitle: 'Primary DPE Computer Operator',
+      refNo: 'ACTC-APP-8192',
       feeStatus: 'Paid',
       feeAmount: 220,
       admitStatus: 'Ready',
       appliedDate: '18 Oct 2026',
       rollNo: '819204',
+      typingSpeedBangla: '30 WPM',
+      typingSpeedEnglish: '42 WPM',
+      computerExperience: '6-Months Govt Certified Computer Office Application (MS Word, Excel, Access, Internet)',
+      isAccountCompleted: true,
+      presentAddress: {
+        careOf: 'Md. Rafiqul Islam',
+        village: 'Bottola, Bhully Bazar',
+        district: 'Thakurgaon',
+        upazila: 'Thakurgaon Sadar',
+        postOffice: 'Bhully',
+        postCode: '5100',
+      },
+      permanentAddress: {
+        careOf: 'Md. Rafiqul Islam',
+        village: 'Bottola, Bhully Bazar',
+        district: 'Thakurgaon',
+        upazila: 'Thakurgaon Sadar',
+        postOffice: 'Bhully',
+        postCode: '5100',
+      },
+      educationList: [
+        {
+          id: '1',
+          exam: 'S.S.C / Dakhil / Equivalent',
+          board: 'Dinajpur',
+          roll: '492014',
+          result: 'GPA 4.88',
+          group: 'Science',
+          passingYear: '2018',
+          duration: '2 Years',
+        },
+        {
+          id: '2',
+          exam: 'H.S.C / Alim / Equivalent',
+          board: 'Dinajpur',
+          roll: '318920',
+          result: 'GPA 4.50',
+          group: 'Science',
+          passingYear: '2020',
+          duration: '2 Years',
+        },
+        {
+          id: '3',
+          exam: 'Graduation / Degree / Honors',
+          board: 'National University',
+          roll: '819204',
+          result: 'CGPA 3.42',
+          group: 'B.Sc in Computer Science & Engineering',
+          passingYear: '2024',
+          duration: '4 Years',
+        },
+      ],
     },
     {
       id: 2,
@@ -227,6 +296,11 @@ export default function App() {
   };
 
   // Handlers for Applicants
+  const handleAddApplicant = (newApplicant: ApplicantAccount) => {
+    setApplicants((prev) => [newApplicant, ...prev]);
+    setCurrentApplicantId(newApplicant.id);
+  };
+
   const handleUpdateApplicant = (updatedApplicant: ApplicantAccount) => {
     setApplicants((prev) =>
       prev.map((a) => (a.id === updatedApplicant.id ? updatedApplicant : a))
@@ -294,18 +368,40 @@ export default function App() {
     }
   };
 
-  const handleOpenLogin = (role: LoginRole = 'applicant', mode: 'login' | 'register' = 'login') => {
+  const [selectedJobTitleForLogin, setSelectedJobTitleForLogin] = useState<string | undefined>(undefined);
+
+  const handleOpenLogin = (
+    role: LoginRole = 'applicant',
+    mode: 'login' | 'register' = 'login',
+    jobTitle?: string
+  ) => {
     setLoginRole(role);
     setLoginMode(mode);
+    setSelectedJobTitleForLogin(jobTitle);
+    setJobPortalOpen(false); // Close JobPortalModal if open so LoginModal is in focus
     setLoginModalOpen(true);
   };
 
-  const handleLoginSuccess = (role: LoginRole) => {
+  const handleLoginSuccess = (
+    role: LoginRole,
+    user?: StudentAccount | ApplicantAccount
+  ) => {
+    setLoginModalOpen(false);
+    setJobPortalOpen(false);
+    setCourseModalOpen(false);
+    setAdmissionModalOpen(false);
+
     if (role === 'student') {
+      if (user && 'rollNo' in user) {
+        setCurrentStudentId(user.id);
+      }
       setCurrentView('student-dashboard');
     } else if (role === 'institute') {
       setCurrentView('admin-dashboard');
     } else {
+      if (user && 'applicantName' in user) {
+        setCurrentApplicantId(user.id);
+      }
       setCurrentView('applicant-dashboard');
     }
   };
@@ -333,6 +429,7 @@ export default function App() {
         onBackToHome={() => setCurrentView('home')}
         onOpenJobPortal={() => setJobPortalOpen(true)}
         applicantData={currentApplicant}
+        onUpdateApplicant={handleUpdateApplicant}
         notices={notices.filter((n) => n.category === 'Applicant' || n.category === 'General')}
       />
     );
@@ -397,6 +494,10 @@ export default function App() {
         onClose={() => setLoginModalOpen(false)}
         initialRole={loginRole}
         initialMode={loginMode}
+        initialJobTitle={selectedJobTitleForLogin}
+        students={students}
+        applicants={applicants}
+        onRegisterApplicant={handleAddApplicant}
         onLoginSuccess={handleLoginSuccess}
       />
 
@@ -406,6 +507,11 @@ export default function App() {
         onClose={() => setJobPortalOpen(false)}
         onOpenAdmission={() => setAdmissionModalOpen(true)}
         notices={notices}
+        students={students}
+        applicants={applicants}
+        onOpenLogin={handleOpenLogin}
+        onRegisterApplicant={handleAddApplicant}
+        onLoginSuccess={handleLoginSuccess}
       />
 
       {/* Course Selection Modal (Course -> Computer Office Application -> Admission) */}

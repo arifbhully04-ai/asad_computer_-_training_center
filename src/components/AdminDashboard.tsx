@@ -30,6 +30,7 @@ import { NoticeItem, StudentAccount, ApplicantAccount } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 import { StudentProfileModal } from './StudentProfileModal.tsx';
 import { ApplicantProfileModal } from './ApplicantProfileModal.tsx';
+import { ApplicantBioDataModal } from './ApplicantBioDataModal.tsx';
 
 export interface AdminDashboardProps {
   onLogout: () => void;
@@ -262,6 +263,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Applicant Modal
   const [selectedApplicantForEdit, setSelectedApplicantForEdit] = useState<ApplicantAccount | null>(null);
+  const [selectedApplicantForBioData, setSelectedApplicantForBioData] = useState<ApplicantAccount | null>(null);
+  const [bioDataModalTab, setBioDataModalTab] = useState<'form' | 'copy'>('copy');
 
   // Notice Handlers
   const handlePdfFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -885,22 +888,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               {app.admitStatus}
                             </button>
                           </td>
-                          <td className="p-3 text-right space-x-1.5">
-                            {/* Edit Applicant & Password Modal Trigger */}
+                          <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                            {/* View Full Bio-Data / PDF copy */}
                             <button
-                              onClick={() => setSelectedApplicantForEdit(app)}
-                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold text-[11px] transition-colors cursor-pointer border border-emerald-200 inline-flex items-center space-x-1"
-                              title="View & Edit applicant details and reset password"
+                              onClick={() => {
+                                setSelectedApplicantForBioData(app);
+                                setBioDataModalTab('copy');
+                              }}
+                              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] transition-colors cursor-pointer border border-blue-200 inline-flex items-center space-x-1"
+                              title="View official applicant's copy (PDF format)"
                             >
-                              <Edit className="w-3 h-3" />
-                              <span>Edit / Password</span>
+                              <FileText className="w-3 h-3 text-blue-600" />
+                              <span>কপি দেখুন / প্রিন্ট</span>
                             </button>
 
+                            {/* Edit All Details & Bio-Data Form */}
                             <button
-                              onClick={() => alert(`Printing official applicant copy for ${app.applicantName} (${app.jobTitle})`)}
-                              className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                              onClick={() => {
+                                setSelectedApplicantForBioData(app);
+                                setBioDataModalTab('form');
+                              }}
+                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold text-[11px] transition-colors cursor-pointer border border-emerald-200 inline-flex items-center space-x-1"
+                              title="Edit all bio-data fields, qualifications, and institute status"
                             >
-                              Print Copy
+                              <Edit className="w-3 h-3" />
+                              <span>তথ্য এডিট</span>
+                            </button>
+
+                            {/* Password Reset */}
+                            <button
+                              onClick={() => setSelectedApplicantForEdit(app)}
+                              className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-[11px] font-semibold transition-colors cursor-pointer border border-stone-200 inline-flex items-center space-x-1"
+                              title="Reset Password"
+                            >
+                              <Key className="w-3 h-3 text-stone-500" />
+                              <span>Password</span>
                             </button>
                           </td>
                         </tr>
@@ -1321,12 +1343,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onSaveStudent={handleSaveStudentFromModal}
       />
 
-      {/* Applicant Profile, Credentials & Password Reset Modal */}
+      {/* Applicant Quick Credentials & Password Reset Modal */}
       <ApplicantProfileModal
         isOpen={Boolean(selectedApplicantForEdit)}
         onClose={() => setSelectedApplicantForEdit(null)}
         applicant={selectedApplicantForEdit}
         onSaveApplicant={handleSaveApplicantFromModal}
+      />
+
+      {/* Applicant Full Bio-Data Form & Official PDF Copy Modal */}
+      <ApplicantBioDataModal
+        isOpen={Boolean(selectedApplicantForBioData)}
+        onClose={() => setSelectedApplicantForBioData(null)}
+        applicant={selectedApplicantForBioData}
+        initialTab={bioDataModalTab}
+        isAdminMode={true}
+        onSaveApplicant={(updated) => {
+          handleSaveApplicantFromModal(updated);
+          setSelectedApplicantForBioData(updated);
+        }}
       />
 
     </div>

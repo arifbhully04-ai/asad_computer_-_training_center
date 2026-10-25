@@ -18,8 +18,8 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react';
-import { NoticeItem } from '../types.ts';
-import { LoginModal } from './LoginModal.tsx';
+import { NoticeItem, StudentAccount, ApplicantAccount } from '../types.ts';
+import { LoginRole, LoginModal } from './LoginModal.tsx';
 import { CircularViewerModal } from './CircularViewerModal.tsx';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 
@@ -28,6 +28,11 @@ interface JobPortalModalProps {
   onClose: () => void;
   onOpenAdmission?: () => void;
   notices?: NoticeItem[];
+  students?: StudentAccount[];
+  applicants?: ApplicantAccount[];
+  onOpenLogin?: (role?: LoginRole, mode?: 'login' | 'register', jobTitle?: string) => void;
+  onRegisterApplicant?: (newApplicant: ApplicantAccount) => void;
+  onLoginSuccess?: (role: LoginRole, user?: StudentAccount | ApplicantAccount) => void;
 }
 
 interface JobItem {
@@ -94,15 +99,21 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
   onClose,
   onOpenAdmission,
   notices = [],
+  students = [],
+  applicants = [],
+  onOpenLogin,
+  onRegisterApplicant,
+  onLoginSuccess,
 }) => {
   const scrollOverlayRef = useRef<HTMLDivElement>(null);
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'admin-notices' | 'job-circulars'>('all');
   const [bookmarkedIds, setBookmarkedIds] = useState<number[]>([]);
   
-  // Login / Register Modal State
+  // Local fallback login modal state
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState<'login' | 'register'>('login');
+  const [selectedJobTitleForAuth, setSelectedJobTitleForAuth] = useState<string>('');
 
   // Circular / Notice PDF Viewer State
   const [circularModalOpen, setCircularModalOpen] = useState(false);
@@ -131,9 +142,17 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
     );
   };
 
-  const handleOpenAuth = (mode: 'login' | 'register') => {
-    setLoginModalMode(mode);
-    setLoginModalOpen(true);
+  const handleTriggerAuth = (mode: 'login' | 'register', jobTitle?: string) => {
+    if (onOpenLogin) {
+      // Use parent-level login flow: close JobPortalModal and open LoginModal with target job
+      onClose();
+      onOpenLogin('applicant', mode, jobTitle);
+    } else {
+      // Fallback local login modal
+      setSelectedJobTitleForAuth(jobTitle || 'Computer Operator & Office Assistant');
+      setLoginModalMode(mode);
+      setLoginModalOpen(true);
+    }
   };
 
   const handleViewCircular = (job: JobItem) => {
@@ -165,7 +184,7 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
             <X className="w-5 h-5" />
           </button>
 
-          {/* 1. Header Bar: Name changed to "Job Portal / Notice" */}
+          {/* 1. Header Bar: Name: Job Portal / Notice */}
           <div className="bg-[#111418] text-white px-6 sm:px-10 py-5 flex items-center justify-between border-b border-white/10">
             {/* Logo with briefcase & notice bell */}
             <div className="flex items-center space-x-3">
@@ -188,7 +207,7 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
             {/* Prominent Login & Register Buttons (larger) */}
             <div className="flex items-center space-x-3 sm:space-x-4 pr-10">
               <button
-                onClick={() => handleOpenAuth('login')}
+                onClick={() => handleTriggerAuth('login')}
                 className="flex items-center space-x-2 px-4 sm:px-6 py-2.5 text-xs sm:text-sm font-semibold text-stone-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/25 rounded-md transition-all duration-200 cursor-pointer shadow-sm"
               >
                 <LogIn className="w-4 h-4 text-emerald-400" />
@@ -196,7 +215,7 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
               </button>
 
               <button
-                onClick={() => handleOpenAuth('register')}
+                onClick={() => handleTriggerAuth('register')}
                 className="flex items-center space-x-2 px-5 sm:px-7 py-2.5 bg-[#00897b] hover:bg-[#00796b] text-white text-xs sm:text-sm font-bold rounded-md transition-all duration-200 cursor-pointer shadow-md hover:shadow-lg"
               >
                 <UserPlus className="w-4 h-4" />
@@ -317,7 +336,7 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
               </div>
             </div>
 
-            {/* SECTION A: Admin Published Notices (Requested: এডমিন প্যানেল থেকে আপলোড করলে যেন এখানে দেখা যায়) */}
+            {/* SECTION A: Admin Published Notices */}
             {(activeFilter === 'all' || activeFilter === 'admin-notices') && notices.length > 0 && (
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-3.5">
@@ -383,9 +402,9 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
                             <span>View Circular / Notice (PDF)</span>
                           </button>
 
-                          {/* Apply Now: redirects to Login/Registration */}
+                          {/* Apply Now: redirects to Login/Registration and takes user to profile */}
                           <button
-                            onClick={() => handleOpenAuth('login')}
+                            onClick={() => handleTriggerAuth('login', notice.title)}
                             className="flex items-center space-x-1.5 px-5 py-2 bg-[#00897b] hover:bg-[#00796b] text-white text-xs font-bold rounded transition-colors shadow-xs hover:shadow-md cursor-pointer"
                             title="Click to Login and Apply"
                           >
@@ -486,7 +505,7 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
                           </button>
 
                           <button
-                            onClick={() => handleOpenAuth('login')}
+                            onClick={() => handleTriggerAuth('login', job.title)}
                             className="flex items-center space-x-1.5 px-5 py-2 bg-[#00897b] hover:bg-[#00796b] text-white text-xs font-bold rounded transition-colors shadow-xs hover:shadow-md cursor-pointer"
                             title="Click to Login and Apply"
                           >
@@ -512,7 +531,7 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
         <CircularViewerModal
           isOpen={circularModalOpen}
           onClose={() => setCircularModalOpen(false)}
-          onOpenLogin={() => handleOpenAuth('login')}
+          onOpenLogin={() => handleTriggerAuth('login', selectedCircular.title)}
           jobTitle={selectedCircular.title}
           organization={selectedCircular.organization}
         />
@@ -527,11 +546,22 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
         />
       )}
 
-      {/* Login & Register Modal matching reference image */}
+      {/* Fallback Login & Register Modal with live authentication & direct profile redirection */}
       <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
         initialMode={loginModalMode}
+        initialJobTitle={selectedJobTitleForAuth}
+        students={students}
+        applicants={applicants}
+        onRegisterApplicant={onRegisterApplicant}
+        onLoginSuccess={(role, user) => {
+          setLoginModalOpen(false);
+          onClose();
+          if (onLoginSuccess) {
+            onLoginSuccess(role, user);
+          }
+        }}
       />
     </>
   );

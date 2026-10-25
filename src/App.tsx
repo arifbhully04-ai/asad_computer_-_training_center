@@ -303,7 +303,7 @@ export default function App() {
       appliedDate: today,
       feeStatus: 'Paid',
       feeAmount: 220,
-      admitStatus: 'Processing',
+      admitStatus: 'Ready',
       rollNo: newRoll,
       refNo: newRef,
       bioDataSnapshot: {
@@ -324,6 +324,7 @@ export default function App() {
       refNo: newRef,
       feeStatus: 'Paid',
       feeAmount: 220,
+      admitStatus: 'Ready',
       appliedDate: today,
       applications: [newApp, ...(applicant.applications || [])],
     };

@@ -106,7 +106,7 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
             postName: applicant.jobTitle,
             feeStatus: applicant.feeStatus || 'Paid',
             feeAmount: applicant.feeAmount || 220,
-            admitStatus: applicant.admitStatus || 'Processing',
+            admitStatus: applicant.admitStatus || 'Ready',
             appliedDate: applicant.appliedDate || 'Online',
             rollNo: applicant.rollNo || 'Pending',
             refNo: applicant.refNo || 'ACTC-APP',
@@ -499,30 +499,27 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center space-x-2 self-end sm:self-auto">
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-800 border-blue-200">
-                              {app.admitStatus === 'Ready' ? 'Admit Card Ready' : 'Application Submitted'}
-                            </span>
+                          <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+                            {/* Application Confirmation Status Badge: Shows whether application is confirmed */}
+                            {app.admitStatus === 'Ready' ? (
+                              <span className="px-3 py-1.5 rounded-full text-xs font-bold border bg-emerald-50 text-emerald-800 border-emerald-300 flex items-center space-x-1.5 shadow-2xs">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>আবেদন সম্পন্ন (কনফার্ম)</span>
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1.5 rounded-full text-xs font-bold border bg-amber-50 text-amber-800 border-amber-300 flex items-center space-x-1.5 shadow-2xs">
+                                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>আবেদন যাচাই প্রক্রিয়াধীন</span>
+                              </span>
+                            )}
 
                             <button
                               onClick={() => handleOpenCopyForApplication(app)}
                               className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg transition-colors flex items-center space-x-1 cursor-pointer border border-stone-300"
                             >
                               <Printer className="w-3.5 h-3.5 text-blue-600" />
-                              <span>Applicant Copy</span>
+                              <span>Applicant Copy (কপি দেখুন)</span>
                             </button>
-
-                            {app.admitStatus === 'Ready' && (
-                              <button
-                                onClick={() => {
-                                  alert(`Admit Card for ${app.postName} (${app.circularTitle}) is ready. Roll: ${app.rollNo}. Visit Asad Computer desk at Bottola, Bhully Bazar for laser print!`);
-                                }}
-                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>Admit Card</span>
-                              </button>
-                            )}
                           </div>
                         </div>
                       ))}

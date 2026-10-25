@@ -18,6 +18,8 @@ interface CircularViewerModalProps {
   onOpenLogin: () => void;
   jobTitle?: string;
   organization?: string;
+  isLoggedIn?: boolean;
+  onApplyDirectly?: (jobTitle: string) => void;
 }
 
 export const CircularViewerModal: React.FC<CircularViewerModalProps> = ({
@@ -26,6 +28,8 @@ export const CircularViewerModal: React.FC<CircularViewerModalProps> = ({
   onOpenLogin,
   jobTitle = 'Computer Operator & Office Assistant',
   organization = 'Directorate of Primary Education & Literacy',
+  isLoggedIn = false,
+  onApplyDirectly,
 }) => {
   const scrollOverlayRef = useRef<HTMLDivElement>(null);
   const [uploadedPdfUrl, setUploadedPdfUrl] = useState<string | null>(null);
@@ -251,13 +255,19 @@ export const CircularViewerModal: React.FC<CircularViewerModalProps> = ({
                     Ready to submit your application?
                   </h4>
                   <p className="text-[11px] text-teal-800 mt-0.5">
-                    Click "Apply Now" to log in and start your application process.
+                    {isLoggedIn
+                      ? 'Click "Apply Now" to select your post and submit your application.'
+                      : 'Click "Apply Now" to log in and start your application process.'}
                   </p>
                 </div>
                 <button
                   onClick={() => {
                     onClose();
-                    onOpenLogin();
+                    if (isLoggedIn && onApplyDirectly) {
+                      onApplyDirectly(jobTitle);
+                    } else {
+                      onOpenLogin();
+                    }
                   }}
                   className="px-6 py-2.5 bg-[#00897b] hover:bg-[#00796b] text-white font-bold text-xs rounded transition-colors shadow-sm flex items-center space-x-1.5 cursor-pointer whitespace-nowrap"
                 >

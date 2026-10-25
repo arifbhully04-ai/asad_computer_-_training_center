@@ -51,7 +51,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [targetJob, setTargetJob] = useState(initialJobTitle || 'Computer Operator & Office Assistant');
+  const [targetJob, setTargetJob] = useState(initialJobTitle || '');
   const [showPassword, setShowPassword] = useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
 
@@ -131,7 +131,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         phone: phone.trim(),
         email: emailOrId.trim(),
         password: password,
-        jobTitle: targetJob || 'Computer Operator & Office Assistant',
+        jobTitle: targetJob || '',
         feeStatus: 'Paid',
         feeAmount: 220,
         admitStatus: 'Processing',
@@ -458,7 +458,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         required
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        placeholder="e.g. মোঃ রাশেদুল ইসলাম"
+                        placeholder="আপনার পূর্ণ নাম লিখুন"
                         className="w-full border border-stone-300 rounded-lg p-2 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors"
                       />
                     </div>
@@ -472,7 +472,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         required
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        placeholder="017XXXXXXXX"
+                        placeholder="আপনার ১১ সংখ্যার মোবাইল নম্বর লিখুন"
                         className="w-full border border-stone-300 rounded-lg p-2 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors font-mono"
                       />
                     </div>
@@ -486,7 +486,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         required
                         value={emailOrId}
                         onChange={(e) => setEmailOrId(e.target.value)}
-                        placeholder="applicant@gmail.com"
+                        placeholder="আপনার ইমেইল ঠিকানা লিখুন"
                         className="w-full border border-stone-300 rounded-lg p-2 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors"
                       />
                     </div>
@@ -499,7 +499,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         type="text"
                         value={targetJob}
                         onChange={(e) => setTargetJob(e.target.value)}
-                        placeholder="e.g. Computer Operator & Office Assistant"
+                        placeholder="আবেদনের বিষয় বা পদ (ঐচ্ছিক)"
                         className="w-full border border-stone-300 rounded-lg p-2 text-stone-800 bg-stone-50 outline-none"
                       />
                     </div>
@@ -523,10 +523,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       }}
                       placeholder={
                         role === 'student'
-                          ? 'e.g. ACTC-2026-084 or 01712-345678'
+                          ? 'রোল নম্বর বা মোবাইল নম্বর'
                           : role === 'institute'
-                          ? 'admin or bhulli.postoffice@gmail.com'
-                          : '01773-733654 or email@gmail.com'
+                          ? 'admin or email'
+                          : 'মোবাইল নম্বর বা ইমেইল ঠিকানা'
                       }
                       className="w-full border border-stone-300 rounded-lg p-2.5 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors"
                     />
@@ -547,7 +547,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         setPassword(e.target.value);
                         setErrorMessage(null);
                       }}
-                      placeholder="Enter your login password"
+                      placeholder="পাসওয়ার্ড লিখুন"
                       className="w-full border border-stone-300 rounded-lg p-2.5 pr-10 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors font-mono"
                     />
                     <button
@@ -561,12 +561,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   </div>
                 </div>
 
-                {/* Helper Notes for quick testing / login */}
+                {/* Helper Notes */}
                 {!isRegisterMode && (
                   <div className="text-[11px] text-stone-500 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
                     {role === 'applicant' && (
                       <span>
-                        * সংরক্ষিত এপ্লিকেন্ট মোবাইল: <strong>01773-733654</strong> (পাসওয়ার্ড: <code>applicantpass</code>) অথবা নিচে রেজিস্ট্রেশন করুন।
+                        * নতুন আবেদনকারীরা নিচের "Applicant Registration" বাটনে ক্লিক করে একাউন্ট তৈরি করুন।
                       </span>
                     )}
                     {role === 'student' && (

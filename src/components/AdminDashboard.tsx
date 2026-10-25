@@ -26,7 +26,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
-import { NoticeItem, StudentAccount, ApplicantAccount } from '../types.ts';
+import { NoticeItem, StudentAccount, ApplicantAccount, JobApplication } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 import { StudentProfileModal } from './StudentProfileModal.tsx';
 import { ApplicantProfileModal } from './ApplicantProfileModal.tsx';
@@ -45,6 +45,9 @@ export interface AdminDashboardProps {
   applicants?: ApplicantAccount[];
   onUpdateApplicant?: (applicant: ApplicantAccount) => void;
   onDeleteApplicant?: (id: number) => void;
+  jobApplications?: JobApplication[];
+  onUpdateJobApplication?: (app: JobApplication) => void;
+  onDeleteJobApplication?: (id: number) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -60,8 +63,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   applicants: propApplicants,
   onUpdateApplicant,
   onDeleteApplicant,
+  jobApplications: propJobApplications,
+  onUpdateJobApplication,
+  onDeleteJobApplication,
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'notices' | 'students' | 'applicants'>('overview');
+  const [applicantSubTab, setApplicantSubTab] = useState<'applications' | 'profiles'>('applications');
   const [searchQuery, setSearchQuery] = useState('');
 
   // 1. Notice Control State (Fallbacks if props not passed)
@@ -203,60 +210,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newStudentPaid, setNewStudentPaid] = useState<number>(1500);
 
   // 3. Applicant Control State
-  const defaultApplicants: ApplicantAccount[] = [
-    {
-      id: 1,
-      applicantName: 'Rashidul Islam',
-      phone: '01773-733654',
-      email: 'rashidul.applicant@gmail.com',
-      jobTitle: 'Primary DPE Computer Operator',
-      feeStatus: 'Paid',
-      feeAmount: 220,
-      admitStatus: 'Ready',
-      appliedDate: '18 Oct 2026',
-      rollNo: '819204',
-      password: 'applicantpass',
-    },
-    {
-      id: 2,
-      applicantName: 'Kamrul Hasan',
-      phone: '01864-399871',
-      email: 'kamrul.railway@gmail.com',
-      jobTitle: 'Bangladesh Railway Office Assistant',
-      feeStatus: 'Paid',
-      feeAmount: 150,
-      admitStatus: 'Processing',
-      appliedDate: '16 Oct 2026',
-      rollNo: 'BR-92014',
-      password: 'applicantpass',
-    },
-    {
-      id: 3,
-      applicantName: 'Farhana Akter',
-      phone: '01911-223344',
-      email: 'farhana.akter@gmail.com',
-      jobTitle: 'DGHS Office Assistant cum Typist',
-      feeStatus: 'Pending',
-      feeAmount: 200,
-      admitStatus: 'Processing',
-      appliedDate: '15 Oct 2026',
-      rollNo: 'DGHS-4401',
-      password: 'applicantpass',
-    },
-    {
-      id: 4,
-      applicantName: 'Sohel Rana',
-      phone: '01755-667788',
-      email: 'sohel.admission@gmail.com',
-      jobTitle: 'Dhaka University Online Admission',
-      feeStatus: 'Paid',
-      feeAmount: 1000,
-      admitStatus: 'Ready',
-      appliedDate: '10 Oct 2026',
-      rollNo: 'DU-891024',
-      password: 'applicantpass',
-    },
-  ];
+  const defaultApplicants: ApplicantAccount[] = [];
 
   const [localApplicants, setLocalApplicants] = useState<ApplicantAccount[]>(defaultApplicants);
   const applicants = propApplicants || localApplicants;
@@ -410,6 +364,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     handleSaveApplicantFromModal(updated);
   };
+
+  const jobApplications = propJobApplications || [];
+
+  const handleToggleJobAppFeeStatus = (app: JobApplication) => {
+    const updated: JobApplication = {
+      ...app,
+      feeStatus: app.feeStatus === 'Paid' ? 'Pending' : 'Paid',
+    };
+    onUpdateJobApplication?.(updated);
+  };
+
+  const handleToggleJobAppAdmitStatus = (app: JobApplication) => {
+    const updated: JobApplication = {
+      ...app,
+      admitStatus: app.admitStatus === 'Ready' ? 'Processing' : 'Ready',
+    };
+    onUpdateJobApplication?.(updated);
+  };
+
+  const handleDeleteJobAppClick = (id: number) => {
+    if (confirm('আপনি কি এই চাকুরীর আবেদনটি মুছে ফেলতে চান?')) {
+      onDeleteJobApplication?.(id);
+    }
+  };
+
+  const handleViewJobAppBioData = (app: JobApplication) => {
+    const matchingAccount = applicants.find((a) => a.id === app.applicantId);
+    const applicantToView: ApplicantAccount = app.bioDataSnapshot || {
+      ...(matchingAccount || {
+        id: app.applicantId,
+        applicantName: app.applicantName,
+        phone: app.phone,
+        email: app.email,
+        jobTitle: app.postName,
+        feeAmount: app.feeAmount,
+        admitStatus: app.admitStatus,
+        feeStatus: app.feeStatus,
+        appliedDate: app.appliedDate,
+        rollNo: app.rollNo,
+      }),
+      applicantName: app.applicantName,
+      phone: app.phone,
+      email: app.email,
+      jobTitle: app.postName,
+      rollNo: app.rollNo,
+      refNo: app.refNo,
+      appliedDate: app.appliedDate,
+      feeStatus: app.feeStatus,
+      feeAmount: app.feeAmount,
+      admitStatus: app.admitStatus,
+    };
+
+    setSelectedApplicantForBioData(applicantToView);
+    setBioDataModalTab('copy');
+  };
+
+  const filteredJobApplications = jobApplications.filter(
+    (app) =>
+      app.applicantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.postName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.circularTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.phone.includes(searchQuery) ||
+      (app.rollNo && app.rollNo.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   // Fee Aggregations across Students
   const totalCourseFees = students.reduce((acc, s) => acc + (s.totalFee || 0), 0);
@@ -824,112 +842,234 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div>
                     <h4 className="text-sm font-bold text-stone-900 uppercase tracking-wider flex items-center space-x-2">
                       <Briefcase className="w-4 h-4 text-emerald-600" />
-                      <span>Applicant Control Panel (এপ্লিকেন্ট প্রোফাইল ও পাসওয়ার্ড)</span>
+                      <span>Applicant Management & Submissions (আবেদনকারীদের আবেদন ও বায়োডাটা)</span>
                     </h4>
                     <p className="text-xs text-stone-500 mt-0.5">
-                      View applicant details, edit job submissions, reset passwords, update payment, and issue admit cards.
+                      এপ্লিকেন্ট কোন পদে আবেদন করেছে তা সরাসরি দেখুন, ফি ও এডমিট কার্ড ম্যানেজ করুন এবং পূর্ণাঙ্গ কপি প্রিন্ট করুন।
                     </p>
                   </div>
-                  <span className="text-xs text-stone-500 font-medium">
-                    Total: {applicants.length} Submissions
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setApplicantSubTab('applications')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        applicantSubTab === 'applications'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                      }`}
+                    >
+                      চাকুরীর আবেদনসমূহ ({jobApplications.length})
+                    </button>
+                    <button
+                      onClick={() => setApplicantSubTab('profiles')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        applicantSubTab === 'profiles'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                      }`}
+                    >
+                      নিবন্ধিত প্রোফাইল ({applicants.length})
+                    </button>
+                  </div>
                 </div>
 
-                {/* Applicants Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="bg-stone-100/80 text-stone-600 border-b border-stone-200 uppercase text-[10px] tracking-wider font-semibold">
-                        <th className="p-3">Applicant Name</th>
-                        <th className="p-3">Contact</th>
-                        <th className="p-3">Applied Job / Circular</th>
-                        <th className="p-3">Fee Status</th>
-                        <th className="p-3">Admit Card</th>
-                        <th className="p-3 text-right">Quick Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100">
-                      {filteredApplicants.map((app) => (
-                        <tr key={app.id} className="hover:bg-stone-50/80 transition-colors">
-                          <td className="p-3 font-bold text-stone-900">
-                            <div>{app.applicantName}</div>
-                            {app.rollNo && (
-                              <span className="text-[10px] text-stone-400 font-mono block">Roll: {app.rollNo}</span>
-                            )}
-                          </td>
-                          <td className="p-3 font-mono text-stone-600">
-                            <div>{app.phone}</div>
-                            <div className="text-[10px] text-stone-400 truncate max-w-[140px]">{app.email}</div>
-                          </td>
-                          <td className="p-3 font-medium text-stone-800">{app.jobTitle}</td>
-                          <td className="p-3">
-                            <button
-                              onClick={() => handleToggleFeeStatus(app)}
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
-                                app.feeStatus === 'Paid'
-                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                  : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
-                              }`}
-                              title="Click to toggle Paid/Pending"
-                            >
-                              {app.feeStatus} (৳{app.feeAmount})
-                            </button>
-                          </td>
-                          <td className="p-3">
-                            <button
-                              onClick={() => handleToggleAdmitStatus(app)}
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
-                                app.admitStatus === 'Ready'
-                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                  : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                              }`}
-                              title="Click to toggle Ready/Processing"
-                            >
-                              {app.admitStatus}
-                            </button>
-                          </td>
-                          <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
-                            {/* View Full Bio-Data / PDF copy */}
-                            <button
-                              onClick={() => {
-                                setSelectedApplicantForBioData(app);
-                                setBioDataModalTab('copy');
-                              }}
-                              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] transition-colors cursor-pointer border border-blue-200 inline-flex items-center space-x-1"
-                              title="View official applicant's copy (PDF format)"
-                            >
-                              <FileText className="w-3 h-3 text-blue-600" />
-                              <span>কপি দেখুন / প্রিন্ট</span>
-                            </button>
+                {/* SUB-VIEW 1: SUBMITTED JOB APPLICATIONS WITH POST NAMES */}
+                {applicantSubTab === 'applications' && (
+                  <div>
+                    {filteredJobApplications.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left border-collapse">
+                          <thead>
+                            <tr className="bg-stone-100/90 text-stone-700 border-b border-stone-300 uppercase text-[10px] tracking-wider font-bold">
+                              <th className="p-3">প্রার্থীর নাম ও রোল</th>
+                              <th className="p-3">যোগাযোগ (মোবাইল ও ইমেইল)</th>
+                              <th className="p-3">সার্কুলার / প্রতিষ্ঠান</th>
+                              <th className="p-3 bg-emerald-50 text-emerald-900">আবেদিত পদ (Applied Post)</th>
+                              <th className="p-3">তারিখ</th>
+                              <th className="p-3">ফি স্ট্যাটাস</th>
+                              <th className="p-3">এডমিট কার্ড</th>
+                              <th className="p-3 text-right">অ্যাকশন</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-200">
+                            {filteredJobApplications.map((app) => (
+                              <tr key={`job-app-${app.id}`} className="hover:bg-stone-50/80 transition-colors">
+                                <td className="p-3 font-bold text-stone-900">
+                                  <div>{app.applicantName || 'Applicant'}</div>
+                                  <span className="text-[10px] text-stone-400 font-mono block">Roll: {app.rollNo}</span>
+                                </td>
+                                <td className="p-3 font-mono text-stone-700">
+                                  <div>{app.phone || '—'}</div>
+                                  <div className="text-[10px] text-stone-400 truncate max-w-[140px]">{app.email || '—'}</div>
+                                </td>
+                                <td className="p-3 font-medium text-stone-800 max-w-[180px] truncate" title={app.circularTitle}>
+                                  {app.circularTitle}
+                                </td>
+                                <td className="p-3 bg-emerald-50/50">
+                                  <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-block shadow-2xs">
+                                    {app.postName}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-stone-500 text-[11px] whitespace-nowrap">
+                                  {app.appliedDate}
+                                </td>
+                                <td className="p-3">
+                                  <button
+                                    onClick={() => handleToggleJobAppFeeStatus(app)}
+                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                                      app.feeStatus === 'Paid'
+                                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                        : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                                    }`}
+                                    title="Click to toggle Paid/Pending"
+                                  >
+                                    {app.feeStatus} (৳{app.feeAmount})
+                                  </button>
+                                </td>
+                                <td className="p-3">
+                                  <button
+                                    onClick={() => handleToggleJobAppAdmitStatus(app)}
+                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                                      app.admitStatus === 'Ready'
+                                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                        : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                                    }`}
+                                    title="Click to toggle Ready/Processing"
+                                  >
+                                    {app.admitStatus}
+                                  </button>
+                                </td>
+                                <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                                  <button
+                                    onClick={() => handleViewJobAppBioData(app)}
+                                    className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg font-bold text-[11px] transition-colors cursor-pointer border border-blue-200 inline-flex items-center space-x-1"
+                                    title="View official applicant copy with bio-data and post name"
+                                  >
+                                    <FileText className="w-3 h-3 text-blue-600" />
+                                    <span>কপি দেখুন / প্রিন্ট</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteJobAppClick(app.id)}
+                                    className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg font-semibold text-[11px] transition-colors cursor-pointer border border-rose-200 inline-flex items-center space-x-1"
+                                    title="Delete application"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 bg-stone-50 rounded-xl border border-dashed border-stone-300 space-y-2">
+                        <Briefcase className="w-10 h-10 text-stone-400 mx-auto" />
+                        <h5 className="font-bold text-stone-700 text-sm">কোনো চাকুরীর আবেদন এখনও জমা পড়েনি</h5>
+                        <p className="text-xs text-stone-500 max-w-md mx-auto">
+                          এপ্লিকেন্টরা সার্কুলারে ক্লিক করে পদের নাম দিয়ে আবেদন জমা দিলে সেই পদের নাম ও তাদের পূর্ণাঙ্গ তথ্য সরাসরি এখানে প্রদর্শিত হবে।
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                            {/* Edit All Details & Bio-Data Form */}
-                            <button
-                              onClick={() => {
-                                setSelectedApplicantForBioData(app);
-                                setBioDataModalTab('form');
-                              }}
-                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold text-[11px] transition-colors cursor-pointer border border-emerald-200 inline-flex items-center space-x-1"
-                              title="Edit all bio-data fields, qualifications, and institute status"
-                            >
-                              <Edit className="w-3 h-3" />
-                              <span>তথ্য এডিট</span>
-                            </button>
-
-                            {/* Password Reset */}
-                            <button
-                              onClick={() => setSelectedApplicantForEdit(app)}
-                              className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-[11px] font-semibold transition-colors cursor-pointer border border-stone-200 inline-flex items-center space-x-1"
-                              title="Reset Password"
-                            >
-                              <Key className="w-3 h-3 text-stone-500" />
-                              <span>Password</span>
-                            </button>
-                          </td>
+                {/* SUB-VIEW 2: REGISTERED PROFILES */}
+                {applicantSubTab === 'profiles' && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-stone-100/80 text-stone-600 border-b border-stone-200 uppercase text-[10px] tracking-wider font-semibold">
+                          <th className="p-3">Applicant Name</th>
+                          <th className="p-3">Contact</th>
+                          <th className="p-3">Profile Status</th>
+                          <th className="p-3">Fee Status</th>
+                          <th className="p-3">Admit Card</th>
+                          <th className="p-3 text-right">Quick Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100">
+                        {filteredApplicants.map((app) => (
+                          <tr key={app.id} className="hover:bg-stone-50/80 transition-colors">
+                            <td className="p-3 font-bold text-stone-900">
+                              <div>{app.applicantName || 'Applicant'}</div>
+                              {app.rollNo && (
+                                <span className="text-[10px] text-stone-400 font-mono block">Roll: {app.rollNo}</span>
+                              )}
+                            </td>
+                            <td className="p-3 font-mono text-stone-600">
+                              <div>{app.phone || '—'}</div>
+                              <div className="text-[10px] text-stone-400 truncate max-w-[140px]">{app.email || '—'}</div>
+                            </td>
+                            <td className="p-3 font-medium text-stone-800">
+                              <span className={app.isAccountCompleted ? 'text-emerald-700 font-semibold' : 'text-stone-500'}>
+                                {app.isAccountCompleted ? '✓ Bio-Data Complete' : 'Profile Created'}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <button
+                                onClick={() => handleToggleFeeStatus(app)}
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                                  app.feeStatus === 'Paid'
+                                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                    : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                                }`}
+                                title="Click to toggle Paid/Pending"
+                              >
+                                {app.feeStatus} (৳{app.feeAmount})
+                              </button>
+                            </td>
+                            <td className="p-3">
+                              <button
+                                onClick={() => handleToggleAdmitStatus(app)}
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                                  app.admitStatus === 'Ready'
+                                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                    : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                                }`}
+                                title="Click to toggle Ready/Processing"
+                              >
+                                {app.admitStatus}
+                              </button>
+                            </td>
+                            <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                              <button
+                                onClick={() => {
+                                  setSelectedApplicantForBioData(app);
+                                  setBioDataModalTab('copy');
+                                }}
+                                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] transition-colors cursor-pointer border border-blue-200 inline-flex items-center space-x-1"
+                                title="View official applicant's copy (PDF format)"
+                              >
+                                <FileText className="w-3 h-3 text-blue-600" />
+                                <span>কপি দেখুন / প্রিন্ট</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedApplicantForBioData(app);
+                                  setBioDataModalTab('form');
+                                }}
+                                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold text-[11px] transition-colors cursor-pointer border border-emerald-200 inline-flex items-center space-x-1"
+                                title="Edit all bio-data fields, qualifications, and institute status"
+                              >
+                                <Edit className="w-3 h-3" />
+                                <span>তথ্য এডিট</span>
+                              </button>
+
+                              <button
+                                onClick={() => setSelectedApplicantForEdit(app)}
+                                className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-[11px] font-semibold transition-colors cursor-pointer border border-stone-200 inline-flex items-center space-x-1"
+                                title="Reset Password"
+                              >
+                                <Key className="w-3 h-3 text-stone-500" />
+                                <span>Password</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 

@@ -11,17 +11,19 @@ import {
   Briefcase,
   FileText,
   ShieldCheck,
-  Check,
   Plus,
   Trash2,
-  Calendar,
-  Phone,
-  Mail,
   Camera,
   PenTool,
-  Download,
 } from 'lucide-react';
 import { ApplicantAccount, EducationRecord, AddressDetails } from '../types.ts';
+import {
+  BANGLADESH_DISTRICTS,
+  EDUCATION_BOARDS,
+  UNIVERSITIES,
+  PASSING_YEARS,
+  EDUCATION_LEVELS,
+} from '../data/bangladeshData.ts';
 
 interface ApplicantBioDataModalProps {
   isOpen: boolean;
@@ -32,36 +34,47 @@ interface ApplicantBioDataModalProps {
   isAdminMode?: boolean;
 }
 
-const defaultEducationList: EducationRecord[] = [
+// Default 4-level blank education list including Masters
+const defaultEmptyEducationList: EducationRecord[] = [
   {
-    id: '1',
-    exam: 'S.S.C / Dakhil / Equivalent',
+    id: 'ssc',
+    exam: 'S.S.C',
     board: 'Dinajpur',
-    roll: '492014',
-    result: 'GPA 4.88 (Out of 5.00)',
+    roll: '',
+    result: '',
     group: 'Science',
-    passingYear: '2018',
+    passingYear: '',
     duration: '2 Years',
   },
   {
-    id: '2',
-    exam: 'H.S.C / Alim / Equivalent',
+    id: 'hsc',
+    exam: 'H.S.C',
     board: 'Dinajpur',
-    roll: '318920',
-    result: 'GPA 4.50 (Out of 5.00)',
+    roll: '',
+    result: '',
     group: 'Science',
-    passingYear: '2020',
+    passingYear: '',
     duration: '2 Years',
   },
   {
-    id: '3',
+    id: 'graduation',
     exam: 'Graduation / Degree / Honors',
-    board: 'National University',
-    roll: '819204',
-    result: 'CGPA 3.42 (Out of 4.00)',
-    group: 'B.Sc in Computer Science & Engineering',
-    passingYear: '2024',
+    board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
+    roll: '',
+    result: '',
+    group: 'Computer Science & Engineering (CSE)',
+    passingYear: '',
     duration: '4 Years',
+  },
+  {
+    id: 'masters',
+    exam: 'Masters',
+    board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
+    roll: '',
+    result: '',
+    group: 'Computer Science & Engineering (CSE)',
+    passingYear: '',
+    duration: '1 Year',
   },
 ];
 
@@ -78,56 +91,99 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [sameAddress, setSameAddress] = useState(false);
 
+  // Helper to determine the education level type for dynamic exam/group mapping
+  const getExamCategory = (exam: string, index: number): 'ssc' | 'hsc' | 'graduation' | 'masters' => {
+    if (exam.includes('S.S.C') || exam.includes('Dakhil') || exam.includes('O Level')) return 'ssc';
+    if (exam.includes('H.S.C') || exam.includes('Alim') || exam.includes('Diploma') || exam.includes('A Level')) return 'hsc';
+    if (exam.includes('Graduation') || exam.includes('Degree') || exam.includes('B.Sc') || exam.includes('B.A') || exam.includes('B.S.S') || exam.includes('B.B.A') || exam.includes('Fazil') || exam.includes('L.L.B')) return 'graduation';
+    if (exam.includes('Masters') || exam.includes('M.Sc') || exam.includes('M.A') || exam.includes('M.S.S') || exam.includes('M.B.A') || exam.includes('Kamil') || exam.includes('M.Ed')) return 'masters';
+    if (index === 0) return 'ssc';
+    if (index === 1) return 'hsc';
+    if (index === 2) return 'graduation';
+    return 'masters';
+  };
+
   useEffect(() => {
     if (applicant) {
-      // Pre-fill or provide sensible defaults from existing applicant
-      const initialPresent: AddressDetails = applicant.presentAddress || {
-        careOf: applicant.fatherName || 'Md. Rafiqul Islam',
-        village: 'Bottola, Bhully Bazar',
-        district: 'Thakurgaon',
-        upazila: 'Thakurgaon Sadar',
-        postOffice: 'Bhully',
-        postCode: '5100',
+      // Ensure initial address does NOT pre-populate fake/dummy data
+      const initialPresent: AddressDetails = {
+        careOf: applicant.presentAddress?.careOf || '',
+        village: applicant.presentAddress?.village || '',
+        district: applicant.presentAddress?.district || 'Thakurgaon',
+        upazila: applicant.presentAddress?.upazila || 'Thakurgaon Sadar',
+        postOffice: applicant.presentAddress?.postOffice || '',
+        postCode: applicant.presentAddress?.postCode || '',
       };
 
-      const initialPermanent: AddressDetails = applicant.permanentAddress || {
-        careOf: applicant.fatherName || 'Md. Rafiqul Islam',
-        village: 'Bottola, Bhully Bazar',
-        district: 'Thakurgaon',
-        upazila: 'Thakurgaon Sadar',
-        postOffice: 'Bhully',
-        postCode: '5100',
+      const initialPermanent: AddressDetails = {
+        careOf: applicant.permanentAddress?.careOf || '',
+        village: applicant.permanentAddress?.village || '',
+        district: applicant.permanentAddress?.district || 'Thakurgaon',
+        upazila: applicant.permanentAddress?.upazila || 'Thakurgaon Sadar',
+        postOffice: applicant.permanentAddress?.postOffice || '',
+        postCode: applicant.permanentAddress?.postCode || '',
       };
+
+      // Check if applicant already has education list with Masters
+      let initialEduList = applicant.educationList && applicant.educationList.length > 0
+        ? [...applicant.educationList]
+        : defaultEmptyEducationList.map(e => ({ ...e }));
+
+      // Ensure Masters row is included if missing
+      const hasMasters = initialEduList.some((e) =>
+        e.exam.toLowerCase().includes('master') ||
+        e.exam.toLowerCase().includes('m.sc') ||
+        e.exam.toLowerCase().includes('m.a') ||
+        e.exam.toLowerCase().includes('m.b.a') ||
+        e.id === 'masters'
+      );
+
+      if (!hasMasters) {
+        initialEduList.push({
+          id: 'masters',
+          exam: 'Masters',
+          board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
+          roll: '',
+          result: '',
+          group: 'Computer Science & Engineering (CSE)',
+          passingYear: '',
+          duration: '1 Year',
+        });
+      }
 
       setFormData({
         ...applicant,
-        nameBangla: applicant.nameBangla || 'রাশিদুল ইসলাম',
-        fatherName: applicant.fatherName || 'Md. Rafiqul Islam',
-        fatherNameBangla: applicant.fatherNameBangla || 'মোঃ রফিকুল ইসলাম',
-        motherName: applicant.motherName || 'Mst. Rokeya Begum',
-        motherNameBangla: applicant.motherNameBangla || 'মোছাঃ রোকেয়া বেগম',
-        dob: applicant.dob || '1998-05-14',
-        ageText: applicant.ageText || '28 Years 05 Months 10 Days',
+        // Empty out sample text if not explicitly set by the applicant
+        applicantName: applicant.applicantName || '',
+        nameBangla: applicant.nameBangla || '',
+        fatherName: applicant.fatherName || '',
+        fatherNameBangla: applicant.fatherNameBangla || '',
+        motherName: applicant.motherName || '',
+        motherNameBangla: applicant.motherNameBangla || '',
+        dob: applicant.dob || '',
+        ageText: applicant.ageText || '',
         gender: applicant.gender || 'Male',
         nationality: applicant.nationality || 'Bangladeshi',
         religion: applicant.religion || 'Islam',
-        nidNumber: applicant.nidNumber || '19989419400000124',
-        birthRegNo: applicant.birthRegNo || '19989419400012345',
-        passportId: applicant.passportId || 'N/A',
+        nidNumber: applicant.nidNumber || '',
+        birthRegNo: applicant.birthRegNo || '',
+        passportId: applicant.passportId || '',
         maritalStatus: applicant.maritalStatus || 'Single',
         spouseName: applicant.spouseName || '',
         quota: applicant.quota || 'Non-Quota',
         departmentalStatus: applicant.departmentalStatus || 'None',
+        phone: applicant.phone || '',
+        email: applicant.email || '',
         presentAddress: initialPresent,
         permanentAddress: initialPermanent,
-        educationList: applicant.educationList && applicant.educationList.length > 0 ? applicant.educationList : defaultEducationList,
-        typingSpeedBangla: applicant.typingSpeedBangla || '30 WPM',
-        typingSpeedEnglish: applicant.typingSpeedEnglish || '40 WPM',
-        computerExperience: applicant.computerExperience || '6-Months Govt Certified Computer Office Application (MS Word, Excel, Access, Internet)',
-        photoUrl: applicant.photoUrl || '/assets/aistudio/passport_photo_sample.jpg',
-        signatureUrl: applicant.signatureUrl || '/assets/aistudio/signature_sample.jpg',
-        refNo: applicant.refNo || `ACTC-APP-${applicant.id.toString().padStart(4, '0')}`,
-        isAccountCompleted: true,
+        educationList: initialEduList,
+        typingSpeedBangla: applicant.typingSpeedBangla || '',
+        typingSpeedEnglish: applicant.typingSpeedEnglish || '',
+        computerExperience: applicant.computerExperience || '',
+        photoUrl: applicant.photoUrl || '',
+        signatureUrl: applicant.signatureUrl || '',
+        refNo: applicant.refNo || `ACTC-APP-${Math.floor(1000 + Math.random() * 9000)}`,
+        isAccountCompleted: Boolean(applicant.isAccountCompleted),
       });
 
       if (applicant.isAccountCompleted && initialTab !== 'form') {
@@ -139,6 +195,52 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
   }, [applicant, isOpen, initialTab]);
 
   if (!isOpen || !formData) return null;
+
+  // District options and helper for current upazilas
+  const getUpazilasForDistrict = (districtName: string) => {
+    const found = BANGLADESH_DISTRICTS.find(
+      (d) => d.name.toLowerCase() === (districtName || '').toLowerCase() || d.bnName === districtName
+    );
+    return found ? found.upazilas : BANGLADESH_DISTRICTS[0].upazilas;
+  };
+
+  const handlePresentDistrictChange = (newDistrict: string) => {
+    const upazilas = getUpazilasForDistrict(newDistrict);
+    const newUpazila = upazilas.length > 0 ? upazilas[0].en : '';
+
+    const updatedPresent = {
+      ...formData.presentAddress!,
+      district: newDistrict,
+      upazila: newUpazila,
+    };
+
+    if (sameAddress) {
+      setFormData({
+        ...formData,
+        presentAddress: updatedPresent,
+        permanentAddress: { ...updatedPresent },
+      });
+    } else {
+      setFormData({
+        ...formData,
+        presentAddress: updatedPresent,
+      });
+    }
+  };
+
+  const handlePermanentDistrictChange = (newDistrict: string) => {
+    const upazilas = getUpazilasForDistrict(newDistrict);
+    const newUpazila = upazilas.length > 0 ? upazilas[0].en : '';
+
+    setFormData({
+      ...formData,
+      permanentAddress: {
+        ...formData.permanentAddress!,
+        district: newDistrict,
+        upazila: newUpazila,
+      },
+    });
+  };
 
   const handlePresentAddressChange = (field: keyof AddressDetails, value: string) => {
     const updatedPresent = { ...formData.presentAddress!, [field]: value };
@@ -173,15 +275,16 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
     }
   };
 
+  // Add extra certificate row if user wants
   const handleAddEducation = () => {
     const newEdu: EducationRecord = {
       id: Date.now().toString(),
       exam: 'Certificate Course',
-      board: 'BTEB (Technical)',
-      roll: '6012',
-      result: 'A+',
+      board: 'Technical Board (BTEB)',
+      roll: '',
+      result: '',
       group: 'Computer Office Application',
-      passingYear: '2024',
+      passingYear: '2025',
       duration: '6 Months',
     };
     setFormData({
@@ -191,9 +294,24 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
   };
 
   const handleRemoveEducation = (id: string) => {
+    // Keep at least 1 row
+    if ((formData.educationList || []).length <= 1) return;
     setFormData({
       ...formData,
       educationList: (formData.educationList || []).filter((e) => e.id !== id),
+    });
+  };
+
+  const handleEducationExamChange = (id: string, newExam: string, index: number) => {
+    const category = getExamCategory(newExam, index);
+    const availableGroups = EDUCATION_LEVELS[category].getGroups(newExam);
+    const defaultGroup = availableGroups[0] || 'General';
+
+    setFormData({
+      ...formData,
+      educationList: (formData.educationList || []).map((e) =>
+        e.id === id ? { ...e, exam: newExam, group: defaultGroup } : e
+      ),
     });
   };
 
@@ -216,8 +334,8 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
     setSaveSuccess(true);
     setTimeout(() => {
       setSaveSuccess(false);
-      setActiveTab('copy'); // Switch to view copy after save
-    }, 900);
+      setActiveTab('copy');
+    }, 800);
   };
 
   const handlePrint = () => {
@@ -226,15 +344,15 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-60 overflow-y-auto bg-stone-900/80 backdrop-blur-xs flex items-start sm:items-center justify-center p-2 sm:p-4 py-4 sm:py-8"
+      className="fixed inset-0 z-60 overflow-y-auto bg-stone-900/80 backdrop-blur-xs flex items-start sm:items-center justify-center p-2 sm:p-4 py-4 sm:py-8 print:p-0 print:bg-white print:overflow-visible"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden my-auto flex flex-col max-h-[94vh]"
+        className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden my-auto flex flex-col max-h-[95vh] print:max-h-none print:shadow-none print:border-none print:rounded-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Modal Header */}
-        <div className="bg-[#161a2b] text-white px-5 sm:px-6 py-3.5 flex items-center justify-between shrink-0">
+        <div className="bg-[#161a2b] text-white px-5 sm:px-6 py-3.5 flex items-center justify-between shrink-0 print:hidden">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-sm">
               AC
@@ -242,7 +360,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="font-bold text-sm sm:text-base text-white tracking-wide">
-                  Create a Account · আবেদনকারীর পূর্ণাঙ্গ বায়োডাটা ফরম
+                  আবেদনকারীর পূর্ণাঙ্গ বায়োডাটা ও তথ্য ফরম (Job Applicant Form)
                 </h3>
                 {formData.isAccountCompleted && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -251,7 +369,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                 )}
               </div>
               <p className="text-[11px] text-stone-400">
-                আবেদনকারীর তথ্য স্থায়ীভাবে সংরক্ষিত থাকে — একবার পূরণ করলেই সব চাকুরীতে স্বয়ংক্রিয়ভাবে ব্যবহৃত হবে
+                সকল জেলা-উপজেলা ও শিক্ষাগত যোগ্যতার সঠিক অটো-সিলেকশন ড্রপডাউন সহ
               </p>
             </div>
           </div>
@@ -267,7 +385,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
         </div>
 
         {/* Action / View Switcher Bar */}
-        <div className="bg-stone-100 border-b border-stone-200 px-5 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="bg-stone-100 border-b border-stone-200 px-5 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0 print:hidden">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setActiveTab('form')}
@@ -290,7 +408,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
               }`}
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>২. অফিসিয়াল এপ্লিকেন্ট কপি (PDF View)</span>
+              <span>২. অফিসিয়াল এপ্লিকেন্ট কপি (Applicant Copy)</span>
             </button>
           </div>
 
@@ -298,7 +416,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
             <div className="flex items-center space-x-2">
               <button
                 onClick={handlePrint}
-                className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-xs"
               >
                 <Printer className="w-3.5 h-3.5 text-emerald-400" />
                 <span>প্রিন্ট / ডাউনলোড (Print Copy)</span>
@@ -309,45 +427,45 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
 
         {/* Success Alert Banner */}
         {saveSuccess && (
-          <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-3 text-emerald-800 text-xs flex items-center space-x-2 animate-fadeIn shrink-0">
+          <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-3 text-emerald-800 text-xs flex items-center space-x-2 animate-fadeIn shrink-0 print:hidden">
             <CheckCircle className="w-4 h-4 text-emerald-600" />
             <span className="font-semibold">
-              আপনার বায়োডাটা ও আবেদন সফলভাবে সংরক্ষিত হয়েছে! তথ্যটি এডমিন ড্যাশবোর্ডে সাথে সাথে হালনাগাদ হয়ে গেছে।
+              আপনার বায়োডাটা সফলভাবে সংরক্ষিত হয়েছে! এপ্লিকেন্ট কপিতে সকল তথ্য প্রদর্শিত হচ্ছে।
             </span>
           </div>
         )}
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-stone-50">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-stone-50 print:p-0 print:bg-white print:overflow-visible">
           
           {/* TAB 1: FORM FILL-UP MODE */}
           {activeTab === 'form' && (
-            <form onSubmit={handleFormSubmit} className="space-y-6 max-w-4xl mx-auto">
+            <form onSubmit={handleFormSubmit} className="space-y-6 max-w-5xl mx-auto">
               
               {/* Form Header Info Box */}
               <div className="bg-white p-4 sm:p-5 rounded-xl border border-stone-200 shadow-xs">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                       Asad Computer & Training Center · Bottola, Bhully Bazar
                     </span>
                     <h4 className="text-sm sm:text-base font-bold text-stone-900 mt-1.5">
-                      অনলাইন চাকুরীর আবেদন ও জীবনবৃত্তান্ত (Bio-Data Profile Form)
+                      চাকুরী ও প্রশিক্ষণ আবেদন ফরম (খালি ফরম - আপনার তথ্য লিখুন)
                     </h4>
                     <p className="text-xs text-stone-500 mt-0.5">
-                      এখানে আপনার সকল তথ্য সঠিকভাবে পূরণ করুন। এটি আপনার মূল প্রোফাইল হিসেবে সংরক্ষণ থাকবে।
+                      জেলা, উপজেলা, বোর্ড ও পাশের সন সরাসরি ড্রপডাউন থেকে সিলেক্ট করুন।
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-[11px] font-mono text-stone-500 block">User ID / Roll:</span>
-                    <span className="text-xs font-bold font-mono text-stone-800 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
-                      {formData.rollNo || formData.refNo || 'AC-2026-APP'}
+                  <div className="text-left sm:text-right shrink-0">
+                    <span className="text-[11px] font-mono text-stone-500 block">Application Tracking Ref:</span>
+                    <span className="text-xs font-bold font-mono text-stone-800 bg-stone-100 px-2.5 py-1 rounded border border-stone-200">
+                      {formData.refNo || 'ACTC-APP-NEW'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Admin Special Controls (if admin mode) */}
+              {/* Admin Special Controls (if in admin mode) */}
               {isAdminMode && (
                 <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-xs">
                   <h5 className="font-bold text-amber-900 mb-2 flex items-center space-x-1.5">
@@ -395,25 +513,11 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                 <div className="border-b border-stone-200 pb-2.5">
                   <h5 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center space-x-1.5">
                     <User className="w-4 h-4 text-emerald-600" />
-                    <span>১. সাধারণ ও ব্যক্তিগত তথ্য (Basic & Personal Details)</span>
+                    <span>১. সাধারণ ও ব্যক্তিগত তথ্য (Personal Details)</span>
                   </h5>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="block font-semibold text-stone-700 mb-1">
-                      পদের নাম (Name of the Post) <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.jobTitle}
-                      onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                      className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-medium"
-                      placeholder="e.g. Computer Operator / Office Assistant"
-                    />
-                  </div>
-
                   <div>
                     <label className="block font-semibold text-stone-700 mb-1">
                       আবেদনকারীর নাম (Applicant's Name - English) <span className="text-rose-500">*</span>
@@ -424,6 +528,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.applicantName}
                       onChange={(e) => setFormData({ ...formData, applicantName: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-medium"
+                      placeholder="Enter full name in English (CAPITAL LETTERS)"
                     />
                   </div>
 
@@ -436,7 +541,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.nameBangla || ''}
                       onChange={(e) => setFormData({ ...formData, nameBangla: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
-                      placeholder="রাশিদুল ইসলাম"
+                      placeholder="বাংলায় পূর্ণ নাম লিখুন"
                     />
                   </div>
 
@@ -450,6 +555,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.fatherName || ''}
                       onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
+                      placeholder="Father's full name"
                     />
                   </div>
 
@@ -462,6 +568,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.fatherNameBangla || ''}
                       onChange={(e) => setFormData({ ...formData, fatherNameBangla: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
+                      placeholder="পিতার নাম বাংলায় লিখুন"
                     />
                   </div>
 
@@ -475,6 +582,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.motherName || ''}
                       onChange={(e) => setFormData({ ...formData, motherName: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
+                      placeholder="Mother's full name"
                     />
                   </div>
 
@@ -487,6 +595,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.motherNameBangla || ''}
                       onChange={(e) => setFormData({ ...formData, motherNameBangla: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
+                      placeholder="মাতার নাম বাংলায় লিখুন"
                     />
                   </div>
 
@@ -512,7 +621,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.ageText || ''}
                       onChange={(e) => setFormData({ ...formData, ageText: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
-                      placeholder="e.g. 26 Years 04 Months"
+                      placeholder="e.g. 24 Years 06 Months"
                     />
                   </div>
 
@@ -525,7 +634,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     >
                       <option value="Male">Male (পুরুষ)</option>
                       <option value="Female">Female (মহিলা)</option>
-                      <option value="Other">Other</option>
+                      <option value="Other">Other (অন্যান্য)</option>
                     </select>
                   </div>
 
@@ -554,7 +663,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.nidNumber || ''}
                       onChange={(e) => setFormData({ ...formData, nidNumber: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-mono"
-                      placeholder="10 / 17 digit NID number"
+                      placeholder="১০ বা ১৭ সংখ্যার জাতীয় পরিচয়পত্র নম্বর"
                     />
                   </div>
 
@@ -567,6 +676,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.birthRegNo || ''}
                       onChange={(e) => setFormData({ ...formData, birthRegNo: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-mono"
+                      placeholder="১৭ সংখ্যার জন্ম নিবন্ধন নম্বর (যদি থাকে)"
                     />
                   </div>
 
@@ -591,6 +701,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                         value={formData.spouseName || ''}
                         onChange={(e) => setFormData({ ...formData, spouseName: e.target.value })}
                         className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
+                        placeholder="স্বামী বা স্ত্রীর পূর্ণ নাম"
                       />
                     </div>
                   )}
@@ -635,9 +746,10 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     <input
                       type="tel"
                       required
-                      value={formData.phone}
+                      value={formData.phone || ''}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-mono font-medium"
+                      placeholder=""
                     />
                   </div>
 
@@ -645,27 +757,28 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     <label className="block font-semibold text-stone-700 mb-1">ইমেইল ঠিকানা (Email)</label>
                     <input
                       type="email"
-                      value={formData.email}
+                      value={formData.email || ''}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-mono"
+                      placeholder=""
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Section 2: Address Information */}
+              {/* Section 2: Address Information with Auto-Cascading District & Upazila */}
               <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-xs space-y-4">
-                <div className="border-b border-stone-200 pb-2.5 flex items-center justify-between">
+                <div className="border-b border-stone-200 pb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <h5 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center space-x-1.5">
                     <MapPin className="w-4 h-4 text-emerald-600" />
-                    <span>২. ঠিকানার বিবরণ (Present & Permanent Address)</span>
+                    <span>২. ঠিকানার বিবরণ (জেলা ও উপজেলা অটো-সিলেক্ট)</span>
                   </h5>
                   <label className="flex items-center space-x-2 text-xs font-semibold text-stone-700 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={sameAddress}
                       onChange={(e) => handleToggleSameAddress(e.target.checked)}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                      className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
                     />
                     <span>Same as Present Address (উভয় ঠিকানা একই)</span>
                   </label>
@@ -674,9 +787,11 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
                   {/* Present Address */}
                   <div className="p-4 bg-stone-50 rounded-xl border border-stone-200 space-y-3">
-                    <div className="font-bold text-stone-800 border-b border-stone-200 pb-1 text-xs">
-                      বর্তমান ঠিকানা (Present Address)
+                    <div className="font-bold text-stone-800 border-b border-stone-200 pb-1 text-xs flex items-center justify-between">
+                      <span>বর্তমান ঠিকানা (Present Address)</span>
+                      <span className="text-[10px] text-emerald-700 font-normal">জেলা সিলেক্ট করলে উপজেলা চলে আসবে</span>
                     </div>
+
                     <div>
                       <label className="block font-semibold text-stone-700 mb-1">Care of (অভিভাবক/পিতা)</label>
                       <input
@@ -684,8 +799,10 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                         value={formData.presentAddress?.careOf || ''}
                         onChange={(e) => handlePresentAddressChange('careOf', e.target.value)}
                         className="w-full p-2 bg-white border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
+                        placeholder="পিতার নাম অথবা প্রযোজ্য অভিভাবকের নাম"
                       />
                     </div>
+
                     <div>
                       <label className="block font-semibold text-stone-700 mb-1">গ্রাম/মহল্লা/রাস্তা (Village/Road)</label>
                       <input
@@ -693,28 +810,47 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                         value={formData.presentAddress?.village || ''}
                         onChange={(e) => handlePresentAddressChange('village', e.target.value)}
                         className="w-full p-2 bg-white border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
+                        placeholder="গ্রাম বা পাড়া / রাস্তার নাম ও বাড়ি নং"
                       />
                     </div>
+
+                    {/* Auto Cascading District & Upazila Selectors */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block font-semibold text-stone-700 mb-1">জেলা (District)</label>
-                        <input
-                          type="text"
-                          value={formData.presentAddress?.district || ''}
-                          onChange={(e) => handlePresentAddressChange('district', e.target.value)}
-                          className="w-full p-2 bg-white border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
-                        />
+                        <label className="block font-semibold text-stone-700 mb-1">
+                          জেলা (District) <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={formData.presentAddress?.district || 'Thakurgaon'}
+                          onChange={(e) => handlePresentDistrictChange(e.target.value)}
+                          className="w-full p-2 bg-white border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-medium"
+                        >
+                          {BANGLADESH_DISTRICTS.map((d) => (
+                            <option key={`pres-dist-${d.name}`} value={d.name}>
+                              {d.name} ({d.bnName})
+                            </option>
+                          ))}
+                        </select>
                       </div>
+
                       <div>
-                        <label className="block font-semibold text-stone-700 mb-1">উপজেলা/থানা (Upazila)</label>
-                        <input
-                          type="text"
+                        <label className="block font-semibold text-stone-700 mb-1">
+                          উপজেলা/থানা (Upazila) <span className="text-rose-500">*</span>
+                        </label>
+                        <select
                           value={formData.presentAddress?.upazila || ''}
                           onChange={(e) => handlePresentAddressChange('upazila', e.target.value)}
-                          className="w-full p-2 bg-white border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
-                        />
+                          className="w-full p-2 bg-white border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-medium"
+                        >
+                          {getUpazilasForDistrict(formData.presentAddress?.district || 'Thakurgaon').map((u) => (
+                            <option key={`pres-up-${u.en}`} value={u.en}>
+                              {u.en} ({u.bn})
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block font-semibold text-stone-700 mb-1">ডাকঘর (Post Office)</label>
@@ -723,6 +859,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                           value={formData.presentAddress?.postOffice || ''}
                           onChange={(e) => handlePresentAddressChange('postOffice', e.target.value)}
                           className="w-full p-2 bg-white border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
+                          placeholder="e.g. Bhully / ভূল্লী"
                         />
                       </div>
                       <div>
@@ -732,6 +869,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                           value={formData.presentAddress?.postCode || ''}
                           onChange={(e) => handlePresentAddressChange('postCode', e.target.value)}
                           className="w-full p-2 bg-white border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-mono"
+                          placeholder="e.g. 5100"
                         />
                       </div>
                     </div>
@@ -739,9 +877,11 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
 
                   {/* Permanent Address */}
                   <div className="p-4 bg-stone-50 rounded-xl border border-stone-200 space-y-3">
-                    <div className="font-bold text-stone-800 border-b border-stone-200 pb-1 text-xs">
-                      স্থায়ী ঠিকানা (Permanent Address)
+                    <div className="font-bold text-stone-800 border-b border-stone-200 pb-1 text-xs flex items-center justify-between">
+                      <span>স্থায়ী ঠিকানা (Permanent Address)</span>
+                      {sameAddress && <span className="text-[10px] text-emerald-700">✓ বর্তমান ঠিকানার অনুলিপি</span>}
                     </div>
+
                     <div>
                       <label className="block font-semibold text-stone-700 mb-1">Care of (অভিভাবক/পিতা)</label>
                       <input
@@ -752,8 +892,10 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                         className={`w-full p-2 border rounded-lg outline-none ${
                           sameAddress ? 'bg-stone-100 text-stone-500' : 'bg-white border-stone-300 focus:border-emerald-500'
                         }`}
+                        placeholder="পিতার নাম বা স্থায়ী অভিভাবক"
                       />
                     </div>
+
                     <div>
                       <label className="block font-semibold text-stone-700 mb-1">গ্রাম/মহল্লা/রাস্তা (Village/Road)</label>
                       <input
@@ -764,34 +906,49 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                         className={`w-full p-2 border rounded-lg outline-none ${
                           sameAddress ? 'bg-stone-100 text-stone-500' : 'bg-white border-stone-300 focus:border-emerald-500'
                         }`}
+                        placeholder="স্থায়ী গ্রামের নাম"
                       />
                     </div>
+
+                    {/* Permanent District & Upazila Selectors */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block font-semibold text-stone-700 mb-1">জেলা (District)</label>
-                        <input
-                          type="text"
+                        <select
                           disabled={sameAddress}
-                          value={formData.permanentAddress?.district || ''}
-                          onChange={(e) => handlePermanentAddressChange('district', e.target.value)}
-                          className={`w-full p-2 border rounded-lg outline-none ${
+                          value={formData.permanentAddress?.district || 'Thakurgaon'}
+                          onChange={(e) => handlePermanentDistrictChange(e.target.value)}
+                          className={`w-full p-2 border rounded-lg outline-none font-medium ${
                             sameAddress ? 'bg-stone-100 text-stone-500' : 'bg-white border-stone-300 focus:border-emerald-500'
                           }`}
-                        />
+                        >
+                          {BANGLADESH_DISTRICTS.map((d) => (
+                            <option key={`perm-dist-${d.name}`} value={d.name}>
+                              {d.name} ({d.bnName})
+                            </option>
+                          ))}
+                        </select>
                       </div>
+
                       <div>
                         <label className="block font-semibold text-stone-700 mb-1">উপজেলা/থানা (Upazila)</label>
-                        <input
-                          type="text"
+                        <select
                           disabled={sameAddress}
                           value={formData.permanentAddress?.upazila || ''}
                           onChange={(e) => handlePermanentAddressChange('upazila', e.target.value)}
-                          className={`w-full p-2 border rounded-lg outline-none ${
+                          className={`w-full p-2 border rounded-lg outline-none font-medium ${
                             sameAddress ? 'bg-stone-100 text-stone-500' : 'bg-white border-stone-300 focus:border-emerald-500'
                           }`}
-                        />
+                        >
+                          {getUpazilasForDistrict(formData.permanentAddress?.district || 'Thakurgaon').map((u) => (
+                            <option key={`perm-up-${u.en}`} value={u.en}>
+                              {u.en} ({u.bn})
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block font-semibold text-stone-700 mb-1">ডাকঘর (Post Office)</label>
@@ -803,6 +960,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                           className={`w-full p-2 border rounded-lg outline-none ${
                             sameAddress ? 'bg-stone-100 text-stone-500' : 'bg-white border-stone-300 focus:border-emerald-500'
                           }`}
+                          placeholder="স্থায়ী ডাকঘর"
                         />
                       </div>
                       <div>
@@ -815,6 +973,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                           className={`w-full p-2 border rounded-lg outline-none font-mono ${
                             sameAddress ? 'bg-stone-100 text-stone-500' : 'bg-white border-stone-300 focus:border-emerald-500'
                           }`}
+                          placeholder="পোস্ট কোড"
                         />
                       </div>
                     </div>
@@ -822,98 +981,167 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 3: Educational Qualifications */}
+              {/* Section 3: Educational Qualifications with Dynamic Groups and Masters row */}
               <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-xs space-y-4">
-                <div className="border-b border-stone-200 pb-2.5 flex items-center justify-between">
-                  <h5 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center space-x-1.5">
-                    <GraduationCap className="w-4 h-4 text-emerald-600" />
-                    <span>৩. শিক্ষাগত যোগ্যতার বিবরণ (Academic Qualifications)</span>
-                  </h5>
+                <div className="border-b border-stone-200 pb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h5 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center space-x-1.5">
+                      <GraduationCap className="w-4 h-4 text-emerald-600" />
+                      <span>৩. শিক্ষাগত যোগ্যতার বিবরণ (এসএসসি, এইচএসসি, স্নাতক ও মাস্টার্স)</span>
+                    </h5>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      পরীক্ষা সিলেক্ট করলে সংশ্লিষ্ট বিভাগ/বিষয় আসবে। পাশের সন ও বোর্ড ড্রপডাউন থেকে সিলেক্ট করুন।
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={handleAddEducation}
-                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg border border-emerald-300 flex items-center space-x-1 cursor-pointer"
+                    className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg border border-emerald-300 flex items-center space-x-1 cursor-pointer self-start sm:self-auto"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>নতুন সার্টিফিকেট যুক্ত করুন</span>
+                    <span>অন্যান্য সার্টিফিকেট যুক্ত করুন</span>
                   </button>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border border-stone-200 rounded-lg overflow-hidden">
-                    <thead className="bg-stone-100 text-stone-700 font-bold border-b border-stone-200">
+                  <table className="w-full text-left text-xs border border-stone-200 rounded-lg overflow-hidden min-w-[760px]">
+                    <thead className="bg-stone-100 text-stone-800 font-bold border-b border-stone-300">
                       <tr>
-                        <th className="p-2.5">পরীক্ষার নাম (Exam)</th>
-                        <th className="p-2.5">বোর্ড / বিশ্ববিদ্যালয়</th>
-                        <th className="p-2.5">রোল নং</th>
-                        <th className="p-2.5">ফলাফল (Result/GPA)</th>
-                        <th className="p-2.5">বিভাগ / বিষয়</th>
-                        <th className="p-2.5">পাশের সন</th>
+                        <th className="p-2.5 w-[20%]">পরীক্ষার নাম (Exam)</th>
+                        <th className="p-2.5 w-[22%]">বিভাগ / বিষয় (Group / Subject)</th>
+                        <th className="p-2.5 w-[22%]">বোর্ড / বিশ্ববিদ্যালয়</th>
+                        <th className="p-2.5 w-[12%]">রোল নং</th>
+                        <th className="p-2.5 w-[14%]">ফলাফল (Result/GPA)</th>
+                        <th className="p-2.5 w-[10%]">পাশের সন</th>
                         <th className="p-2.5 text-center">মুছুন</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-stone-200">
-                      {(formData.educationList || []).map((edu) => (
-                        <tr key={edu.id} className="hover:bg-stone-50">
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={edu.exam}
-                              onChange={(e) => handleEducationChange(edu.id, 'exam', e.target.value)}
-                              className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={edu.board}
-                              onChange={(e) => handleEducationChange(edu.id, 'board', e.target.value)}
-                              className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={edu.roll}
-                              onChange={(e) => handleEducationChange(edu.id, 'roll', e.target.value)}
-                              className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs font-mono"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={edu.result}
-                              onChange={(e) => handleEducationChange(edu.id, 'result', e.target.value)}
-                              className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={edu.group}
-                              onChange={(e) => handleEducationChange(edu.id, 'group', e.target.value)}
-                              className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={edu.passingYear}
-                              onChange={(e) => handleEducationChange(edu.id, 'passingYear', e.target.value)}
-                              className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs font-mono"
-                            />
-                          </td>
-                          <td className="p-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveEducation(edu.id)}
-                              className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-stone-200 bg-white">
+                      {(formData.educationList || []).map((edu, idx) => {
+                        const category = getExamCategory(edu.exam, idx);
+                        const examList = EDUCATION_LEVELS[category].exams;
+                        const groupList = EDUCATION_LEVELS[category].getGroups(edu.exam);
+                        const isUniversityLevel = category === 'graduation' || category === 'masters';
+
+                        return (
+                          <tr key={edu.id} className="hover:bg-stone-50">
+                            {/* Exam Dropdown */}
+                            <td className="p-2">
+                              <select
+                                value={edu.exam}
+                                onChange={(e) => handleEducationExamChange(edu.id, e.target.value, idx)}
+                                className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs font-semibold focus:border-emerald-500"
+                              >
+                                {examList.map((ex) => (
+                                  <option key={`${edu.id}-ex-${ex}`} value={ex}>
+                                    {ex}
+                                  </option>
+                                ))}
+                                {!examList.includes(edu.exam) && (
+                                  <option value={edu.exam}>{edu.exam}</option>
+                                )}
+                              </select>
+                              <span className="text-[10px] text-stone-400 block mt-0.5 font-medium">
+                                {category === 'ssc' && 'Secondary Level'}
+                                {category === 'hsc' && 'Higher Secondary'}
+                                {category === 'graduation' && 'Graduation Level'}
+                                {category === 'masters' && 'Post-Graduation (মাস্টার্স)'}
+                              </span>
+                            </td>
+
+                            {/* Dynamic Group / Subject Dropdown */}
+                            <td className="p-2">
+                              <select
+                                value={edu.group}
+                                onChange={(e) => handleEducationChange(edu.id, 'group', e.target.value)}
+                                className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs font-medium focus:border-emerald-500"
+                              >
+                                {groupList.map((grp) => (
+                                  <option key={`${edu.id}-grp-${grp}`} value={grp}>
+                                    {grp}
+                                  </option>
+                                ))}
+                                {!groupList.includes(edu.group) && edu.group && (
+                                  <option value={edu.group}>{edu.group}</option>
+                                )}
+                              </select>
+                            </td>
+
+                            {/* Board / University Dropdown */}
+                            <td className="p-2">
+                              <select
+                                value={edu.board}
+                                onChange={(e) => handleEducationChange(edu.id, 'board', e.target.value)}
+                                className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs focus:border-emerald-500"
+                              >
+                                {isUniversityLevel ? (
+                                  UNIVERSITIES.map((u) => (
+                                    <option key={`${edu.id}-uni-${u}`} value={u}>
+                                      {u}
+                                    </option>
+                                  ))
+                                ) : (
+                                  EDUCATION_BOARDS.map((b) => (
+                                    <option key={`${edu.id}-brd-${b}`} value={b}>
+                                      {b}
+                                    </option>
+                                  ))
+                                )}
+                              </select>
+                            </td>
+
+                            {/* Roll Number Input (Blank by default) */}
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={edu.roll}
+                                onChange={(e) => handleEducationChange(edu.id, 'roll', e.target.value)}
+                                placeholder="রোল নং"
+                                className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs font-mono"
+                              />
+                            </td>
+
+                            {/* Result Input / Preset */}
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={edu.result}
+                                onChange={(e) => handleEducationChange(edu.id, 'result', e.target.value)}
+                                placeholder="GPA / CGPA"
+                                className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs font-medium"
+                              />
+                            </td>
+
+                            {/* Passing Year Dropdown */}
+                            <td className="p-2">
+                              <select
+                                value={edu.passingYear}
+                                onChange={(e) => handleEducationChange(edu.id, 'passingYear', e.target.value)}
+                                className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs font-mono font-medium"
+                              >
+                                <option value="">বছর</option>
+                                {PASSING_YEARS.map((yr) => (
+                                  <option key={`${edu.id}-yr-${yr}`} value={yr}>
+                                    {yr}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+
+                            {/* Delete Row */}
+                            <td className="p-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveEducation(edu.id)}
+                                title="মুছুন"
+                                className="text-stone-400 hover:text-rose-600 p-1 cursor-pointer transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -964,7 +1192,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.computerExperience || ''}
                       onChange={(e) => setFormData({ ...formData, computerExperience: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
-                      placeholder="MS Office, Internet, Windows"
+                      placeholder="Computer Office Application 6 Months (BTEB)"
                     />
                   </div>
                 </div>
@@ -975,7 +1203,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                 <div className="border-b border-stone-200 pb-2.5">
                   <h5 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center space-x-1.5">
                     <Camera className="w-4 h-4 text-emerald-600" />
-                    <span>৫. ছবি ও স্বাক্ষর (Photo & Signature 300x300 & 300x80)</span>
+                    <span>৫. ছবি ও স্বাক্ষর (Photo & Signature)</span>
                   </h5>
                 </div>
 
@@ -987,9 +1215,6 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                           src={formData.photoUrl}
                           alt="Applicant"
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.currentTarget as any).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80';
-                          }}
                         />
                       ) : (
                         <User className="w-10 h-10 text-stone-300" />
@@ -998,11 +1223,11 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     <div className="flex-1">
                       <div className="font-bold text-stone-800">পাসপোর্ট সাইজ ছবি (300 x 300)</div>
                       <div className="text-[11px] text-stone-500 mt-1">
-                        সরকারি আবেদনের স্ট্যান্ডার্ড সাইজ (Max 100 KB)
+                        অনলাইন আবেদনের ছবি (Max 100 KB)
                       </div>
                       <label className="mt-2.5 inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-100 rounded-lg text-[11px] font-bold text-stone-700 cursor-pointer shadow-xs">
                         <Upload className="w-3.5 h-3.5" />
-                        <span>ছবি আপলোড / পরিবর্তন</span>
+                        <span>ছবি আপলোড করুন</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -1022,6 +1247,12 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                   <div className="p-4 bg-stone-50 rounded-xl border border-stone-200 flex items-center space-x-4">
                     <div className="w-32 h-14 bg-white border border-stone-300 rounded shadow-xs flex items-center justify-center overflow-hidden shrink-0 p-1">
                       {formData.signatureUrl ? (
+                        <img
+                          src={formData.signatureUrl}
+                          alt="Signature"
+                          className="h-full object-contain"
+                        />
+                      ) : formData.applicantName ? (
                         <div className="text-center font-serif italic text-stone-800 text-sm font-bold border-b border-stone-400 pb-0.5 px-2">
                           {formData.applicantName}
                         </div>
@@ -1032,7 +1263,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     <div className="flex-1">
                       <div className="font-bold text-stone-800">প্রার্থীর স্বাক্ষর (300 x 80)</div>
                       <div className="text-[11px] text-stone-500 mt-1">
-                        স্বাক্ষর ছবি আপলোড করুন (Max 60 KB)
+                        স্বাক্ষরের ছবি আপলোড করুন (Max 60 KB)
                       </div>
                       <label className="mt-2.5 inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-100 rounded-lg text-[11px] font-bold text-stone-700 cursor-pointer shadow-xs">
                         <Upload className="w-3.5 h-3.5" />
@@ -1058,7 +1289,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
               {/* Form Action Buttons */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-stone-200">
                 <div className="text-xs text-stone-500 text-center sm:text-left">
-                  <span className="font-semibold text-emerald-700">★ আসাদ কম্পিউটার সেবা ডেস্ক:</span> একবার সংরক্ষণ করলে আপনার তথ্য আমাদের ডাটাবেজে স্থায়ীভাবে থাকবে।
+                  <span className="font-semibold text-emerald-700">★ আসাদ কম্পিউটার সেবা ডেস্ক:</span> ফরম পূরণ করে সংরক্ষণে ক্লিক করলেই স্বয়ংক্রিয় এপ্লিকেন্ট কপি তৈরি হবে।
                 </div>
 
                 <div className="flex items-center space-x-3 w-full sm:w-auto">
@@ -1067,7 +1298,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     onClick={onClose}
                     className="w-1/2 sm:w-auto px-4 py-2.5 border border-stone-300 rounded-xl text-stone-600 font-semibold hover:bg-stone-100 text-xs cursor-pointer"
                   >
-                    বন্ধ করুন
+                    বাতিল
                   </button>
 
                   <button
@@ -1075,7 +1306,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     className="w-1/2 sm:w-auto flex items-center justify-center space-x-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
-                    <span>তথ্য সংরক্ষণ ও একাউন্ট তৈরি করুন</span>
+                    <span>তথ্য সংরক্ষণ ও কপি দেখুন</span>
                   </button>
                 </div>
               </div>
@@ -1083,11 +1314,11 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
             </form>
           )}
 
-          {/* TAB 2: OFFICIAL APPLICANT'S COPY (PDF / PRINT VIEW) */}
+          {/* TAB 2: OFFICIAL APPLICANT'S COPY (PRINT & PDF VIEW) */}
           {activeTab === 'copy' && (
             <div className="bg-white p-6 sm:p-10 rounded-xl border border-stone-300 shadow-md max-w-4xl mx-auto print:border-none print:shadow-none print:p-0 text-stone-900 font-sans">
               
-              {/* Document Header matching DSS_D4ZSN8HKJ_713de03b.pdf */}
+              {/* Document Header */}
               <div className="border-b-2 border-stone-900 pb-4 mb-4 text-center">
                 <div className="flex items-center justify-between">
                   <div className="w-16 h-16 rounded-full border border-stone-300 flex items-center justify-center p-1">
@@ -1113,33 +1344,41 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
 
                   <div className="w-20 text-right shrink-0">
                     <div className="w-20 h-24 border border-stone-400 bg-stone-50 overflow-hidden flex items-center justify-center">
-                      <img
-                        src={formData.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80'}
-                        alt="Applicant"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.currentTarget as any).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80';
-                        }}
-                      />
+                      {formData.photoUrl ? (
+                        <img
+                          src={formData.photoUrl}
+                          alt="Applicant"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="text-[9px] text-stone-400 text-center p-1 font-mono">
+                          PHOTO<br />300x300
+                        </div>
+                      )}
                     </div>
-                    <span className="text-[9px] text-stone-500 font-mono block mt-0.5">Photo 300x300</span>
+                    <span className="text-[9px] text-stone-500 font-mono block mt-0.5">Photo</span>
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2 border-t border-stone-200 flex flex-wrap items-center justify-between text-xs font-mono font-semibold">
+                <div className="mt-3 pt-2 border-t border-stone-200 flex flex-wrap items-center justify-between text-xs font-mono font-semibold gap-2">
                   <div>
-                    Tracking / Ref: <span className="font-bold text-stone-900">{formData.refNo || 'ACTC-APP-8192'}</span>
+                    Tracking / Ref: <span className="font-bold text-stone-900">{formData.refNo || 'ACTC-APP'}</span>
                   </div>
                   <div>
-                    User ID / Roll: <span className="font-bold text-stone-900">{formData.rollNo || '819204'}</span>
+                    User ID / Roll: <span className="font-bold text-stone-900">{formData.rollNo || formData.refNo || '—'}</span>
                   </div>
+                  {formData.jobTitle && (
+                    <div className="bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded border border-emerald-300 font-sans font-bold text-[11px]">
+                      আবেদিত পদ: {formData.jobTitle}
+                    </div>
+                  )}
                   <div>
-                    Date: <span className="text-stone-800">{formData.appliedDate}</span>
+                    Date: <span className="text-stone-800">{formData.appliedDate || 'Online Submission'}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Main Applicant Bio-Data Table */}
+              {/* Main Applicant Bio-Data Tables */}
               <div className="space-y-4 text-xs">
                 
                 {/* 1. Basic Information Table */}
@@ -1150,36 +1389,32 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                   <table className="w-full text-left border-collapse text-xs">
                     <tbody>
                       <tr className="border-b border-stone-300">
-                        <td className="w-1/4 p-2 font-semibold bg-stone-50 border-r border-stone-300">Name of the Post</td>
-                        <td className="p-2 font-bold text-stone-900" colSpan={3}>{formData.jobTitle}</td>
-                      </tr>
-                      <tr className="border-b border-stone-300">
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Applicant's Name</td>
-                        <td className="p-2 font-bold uppercase">{formData.applicantName}</td>
+                        <td className="p-2 font-bold uppercase">{formData.applicantName || '—'}</td>
                         <td className="w-1/4 p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">প্রার্থীর নাম (বাংলায়)</td>
                         <td className="p-2 font-medium">{formData.nameBangla || '—'}</td>
                       </tr>
                       <tr className="border-b border-stone-300">
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Father's Name</td>
-                        <td className="p-2 font-medium">{formData.fatherName}</td>
+                        <td className="p-2 font-medium">{formData.fatherName || '—'}</td>
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">পিতার নাম (বাংলায়)</td>
                         <td className="p-2 font-medium">{formData.fatherNameBangla || '—'}</td>
                       </tr>
                       <tr className="border-b border-stone-300">
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Mother's Name</td>
-                        <td className="p-2 font-medium">{formData.motherName}</td>
+                        <td className="p-2 font-medium">{formData.motherName || '—'}</td>
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">মাতার নাম (বাংলায়)</td>
                         <td className="p-2 font-medium">{formData.motherNameBangla || '—'}</td>
                       </tr>
                       <tr className="border-b border-stone-300">
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Date of Birth</td>
-                        <td className="p-2 font-mono">{formData.dob}</td>
+                        <td className="p-2 font-mono">{formData.dob || '—'}</td>
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">Age on Circular</td>
                         <td className="p-2">{formData.ageText || '—'}</td>
                       </tr>
                       <tr className="border-b border-stone-300">
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Gender & Religion</td>
-                        <td className="p-2">{formData.gender} · {formData.religion}</td>
+                        <td className="p-2">{formData.gender || '—'} · {formData.religion || '—'}</td>
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">Nationality</td>
                         <td className="p-2">{formData.nationality || 'Bangladeshi'}</td>
                       </tr>
@@ -1191,15 +1426,21 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       </tr>
                       <tr className="border-b border-stone-300">
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Marital Status</td>
-                        <td className="p-2">{formData.maritalStatus} {formData.spouseName ? `(${formData.spouseName})` : ''}</td>
+                        <td className="p-2">{formData.maritalStatus || 'Single'} {formData.spouseName ? `(${formData.spouseName})` : ''}</td>
                         <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">Quota (কোটা)</td>
                         <td className="p-2 font-medium">{formData.quota || 'Non-Quota'}</td>
                       </tr>
+                      <tr className="border-b border-stone-300">
+                        <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Mobile Number</td>
+                        <td className="p-2 font-mono font-bold text-emerald-800">{formData.phone || '—'}</td>
+                        <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">Email Address</td>
+                        <td className="p-2 font-mono">{formData.email || '—'}</td>
+                      </tr>
                       <tr>
-                        <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Mobile & Email</td>
-                        <td className="p-2 font-mono font-bold text-emerald-800">{formData.phone}</td>
-                        <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">Dept. Status</td>
+                        <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300">Dept. Status</td>
                         <td className="p-2">{formData.departmentalStatus || 'None'}</td>
+                        <td className="p-2 font-semibold bg-stone-50 border-r border-stone-300 border-l">Computer Training</td>
+                        <td className="p-2">{formData.computerExperience || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1213,22 +1454,22 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                   <div className="grid grid-cols-2 divide-x divide-stone-400">
                     <div className="p-3 space-y-1">
                       <div className="font-bold text-stone-900 underline text-[11px] mb-1">Present Address (বর্তমান ঠিকানা):</div>
-                      <div><strong>Care of:</strong> {formData.presentAddress?.careOf}</div>
-                      <div><strong>Village/Road:</strong> {formData.presentAddress?.village}</div>
-                      <div><strong>Upazila & District:</strong> {formData.presentAddress?.upazila}, {formData.presentAddress?.district}</div>
-                      <div><strong>Post Office & Code:</strong> {formData.presentAddress?.postOffice} - {formData.presentAddress?.postCode}</div>
+                      <div><strong>Care of:</strong> {formData.presentAddress?.careOf || '—'}</div>
+                      <div><strong>Village/Road:</strong> {formData.presentAddress?.village || '—'}</div>
+                      <div><strong>Upazila & District:</strong> {formData.presentAddress?.upazila || '—'}, {formData.presentAddress?.district || '—'}</div>
+                      <div><strong>Post Office & Code:</strong> {formData.presentAddress?.postOffice || '—'} {formData.presentAddress?.postCode ? `- ${formData.presentAddress.postCode}` : ''}</div>
                     </div>
                     <div className="p-3 space-y-1">
                       <div className="font-bold text-stone-900 underline text-[11px] mb-1">Permanent Address (স্থায়ী ঠিকানা):</div>
-                      <div><strong>Care of:</strong> {formData.permanentAddress?.careOf}</div>
-                      <div><strong>Village/Road:</strong> {formData.permanentAddress?.village}</div>
-                      <div><strong>Upazila & District:</strong> {formData.permanentAddress?.upazila}, {formData.permanentAddress?.district}</div>
-                      <div><strong>Post Office & Code:</strong> {formData.permanentAddress?.postCode ? `${formData.permanentAddress?.postOffice} - ${formData.permanentAddress?.postCode}` : formData.permanentAddress?.postOffice}</div>
+                      <div><strong>Care of:</strong> {formData.permanentAddress?.careOf || '—'}</div>
+                      <div><strong>Village/Road:</strong> {formData.permanentAddress?.village || '—'}</div>
+                      <div><strong>Upazila & District:</strong> {formData.permanentAddress?.upazila || '—'}, {formData.permanentAddress?.district || '—'}</div>
+                      <div><strong>Post Office & Code:</strong> {formData.permanentAddress?.postOffice || '—'} {formData.permanentAddress?.postCode ? `- ${formData.permanentAddress.postCode}` : ''}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* 3. Academic Qualifications Table */}
+                {/* 3. Academic Qualifications Table (Includes Masters row) */}
                 <div className="border border-stone-400">
                   <div className="bg-stone-200 px-3 py-1 font-bold text-stone-900 border-b border-stone-400 uppercase tracking-wider text-[11px]">
                     3. Academic Qualifications (শিক্ষাগত যোগ্যতা)
@@ -1247,12 +1488,12 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     <tbody className="divide-y divide-stone-300">
                       {(formData.educationList || []).map((edu) => (
                         <tr key={edu.id}>
-                          <td className="p-2 font-medium border-r border-stone-300">{edu.exam}</td>
-                          <td className="p-2 border-r border-stone-300">{edu.board}</td>
-                          <td className="p-2 font-mono border-r border-stone-300">{edu.roll}</td>
-                          <td className="p-2 font-bold border-r border-stone-300">{edu.result}</td>
-                          <td className="p-2 border-r border-stone-300">{edu.group}</td>
-                          <td className="p-2 font-mono">{edu.passingYear}</td>
+                          <td className="p-2 font-medium border-r border-stone-300">{edu.exam || '—'}</td>
+                          <td className="p-2 border-r border-stone-300">{edu.board || '—'}</td>
+                          <td className="p-2 font-mono border-r border-stone-300">{edu.roll || '—'}</td>
+                          <td className="p-2 font-bold border-r border-stone-300">{edu.result || '—'}</td>
+                          <td className="p-2 border-r border-stone-300">{edu.group || '—'}</td>
+                          <td className="p-2 font-mono">{edu.passingYear || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1265,9 +1506,15 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     4. Professional Skills & Computer Knowledge (দক্ষতা)
                   </div>
                   <div className="p-3 space-y-1 text-xs">
-                    <div><strong>Typing Speed:</strong> Bangla: <span className="font-mono font-bold text-emerald-800">{formData.typingSpeedBangla || '30 WPM'}</span>, English: <span className="font-mono font-bold text-emerald-800">{formData.typingSpeedEnglish || '40 WPM'}</span></div>
-                    <div><strong>Computer Diploma/Certification:</strong> {formData.computerExperience || 'Computer Office Application 6 Months Course certified by Bangladesh Technical Education Board.'}</div>
-                    <div><strong>Fee Payment Status:</strong> <span className="font-bold text-emerald-700">{formData.feeStatus} (৳ {formData.feeAmount})</span> · Admit Card: <span className="font-bold">{formData.admitStatus}</span></div>
+                    <div>
+                      <strong>Typing Speed:</strong> Bangla: <span className="font-mono font-bold text-emerald-800">{formData.typingSpeedBangla || '—'}</span>, English: <span className="font-mono font-bold text-emerald-800">{formData.typingSpeedEnglish || '—'}</span>
+                    </div>
+                    <div>
+                      <strong>Computer Certification / Training:</strong> {formData.computerExperience || 'Certified in Computer Office Application (Microsoft Office, Excel, Access, Internet)'}
+                    </div>
+                    <div>
+                      <strong>Fee Payment Status:</strong> <span className="font-bold text-emerald-700">{formData.feeStatus || 'Paid'} (৳ {formData.feeAmount || 220})</span> · Admit Card: <span className="font-bold">{formData.admitStatus || 'Processing'}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1286,13 +1533,23 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     </div>
 
                     <div className="text-center">
-                      <div className="font-serif italic text-sm font-bold text-stone-800 mb-1 border-b border-stone-400 pb-0.5 px-3">
-                        {formData.applicantName}
+                      <div className="h-9 flex items-center justify-center">
+                        {formData.signatureUrl ? (
+                          <img
+                            src={formData.signatureUrl}
+                            alt="Signature"
+                            className="h-8 object-contain"
+                          />
+                        ) : (
+                          <div className="font-serif italic text-sm font-bold text-stone-800 border-b border-stone-400 pb-0.5 px-3">
+                            {formData.applicantName || 'Signature'}
+                          </div>
+                        )}
                       </div>
                       <div className="w-36 border-t border-stone-600 pt-1 text-[11px] font-bold text-stone-900">
                         Applicant's Signature
                       </div>
-                      <div className="text-[9px] text-stone-500 font-mono">Date: {formData.appliedDate}</div>
+                      <div className="text-[9px] text-stone-500 font-mono">Date: {formData.appliedDate || 'Online'}</div>
                     </div>
                   </div>
                 </div>

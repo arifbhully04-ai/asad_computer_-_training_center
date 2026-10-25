@@ -33,6 +33,9 @@ interface JobPortalModalProps {
   onOpenLogin?: (role?: LoginRole, mode?: 'login' | 'register', jobTitle?: string) => void;
   onRegisterApplicant?: (newApplicant: ApplicantAccount) => void;
   onLoginSuccess?: (role: LoginRole, user?: StudentAccount | ApplicantAccount) => void;
+  isLoggedIn?: boolean;
+  applicantData?: ApplicantAccount;
+  onApplyDirectly?: (circularTitle: string) => void;
 }
 
 interface JobItem {
@@ -104,6 +107,9 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
   onOpenLogin,
   onRegisterApplicant,
   onLoginSuccess,
+  isLoggedIn = false,
+  applicantData,
+  onApplyDirectly,
 }) => {
   const scrollOverlayRef = useRef<HTMLDivElement>(null);
 
@@ -152,6 +158,15 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
       setSelectedJobTitleForAuth(jobTitle || 'Computer Operator & Office Assistant');
       setLoginModalMode(mode);
       setLoginModalOpen(true);
+    }
+  };
+
+  const handleApplyClick = (jobTitle: string) => {
+    if (isLoggedIn && onApplyDirectly) {
+      onClose();
+      onApplyDirectly(jobTitle);
+    } else {
+      handleTriggerAuth('login', jobTitle);
     }
   };
 
@@ -204,24 +219,35 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
               </div>
             </div>
 
-            {/* Prominent Login & Register Buttons (larger) */}
-            <div className="flex items-center space-x-3 sm:space-x-4 pr-10">
-              <button
-                onClick={() => handleTriggerAuth('login')}
-                className="flex items-center space-x-2 px-4 sm:px-6 py-2.5 text-xs sm:text-sm font-semibold text-stone-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/25 rounded-md transition-all duration-200 cursor-pointer shadow-sm"
-              >
-                <LogIn className="w-4 h-4 text-emerald-400" />
-                <span>Login</span>
-              </button>
+            {/* Header Right: If logged in, show user info; otherwise show Login & Register */}
+            {isLoggedIn ? (
+              <div className="flex items-center space-x-3 pr-8 sm:pr-10">
+                <div className="flex items-center space-x-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs sm:text-sm font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="truncate max-w-[140px] sm:max-w-[200px]">
+                    {applicantData?.applicantName ? `${applicantData.applicantName} (লগইন করা)` : 'Applicant (Logged In)'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3 sm:space-x-4 pr-10">
+                <button
+                  onClick={() => handleTriggerAuth('login')}
+                  className="flex items-center space-x-2 px-4 sm:px-6 py-2.5 text-xs sm:text-sm font-semibold text-stone-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/25 rounded-md transition-all duration-200 cursor-pointer shadow-sm"
+                >
+                  <LogIn className="w-4 h-4 text-emerald-400" />
+                  <span>Login</span>
+                </button>
 
-              <button
-                onClick={() => handleTriggerAuth('register')}
-                className="flex items-center space-x-2 px-5 sm:px-7 py-2.5 bg-[#00897b] hover:bg-[#00796b] text-white text-xs sm:text-sm font-bold rounded-md transition-all duration-200 cursor-pointer shadow-md hover:shadow-lg"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Register</span>
-              </button>
-            </div>
+                <button
+                  onClick={() => handleTriggerAuth('register')}
+                  className="flex items-center space-x-2 px-5 sm:px-7 py-2.5 bg-[#00897b] hover:bg-[#00796b] text-white text-xs sm:text-sm font-bold rounded-md transition-all duration-200 cursor-pointer shadow-md hover:shadow-lg"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Register</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 2. Hero Section: Headline, subtitle & stats */}
@@ -402,13 +428,13 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
                             <span>View Circular / Notice (PDF)</span>
                           </button>
 
-                          {/* Apply Now: redirects to Login/Registration and takes user to profile */}
+                          {/* Apply Now: direct application if logged in, otherwise auth */}
                           <button
-                            onClick={() => handleTriggerAuth('login', notice.title)}
+                            onClick={() => handleApplyClick(notice.title)}
                             className="flex items-center space-x-1.5 px-5 py-2 bg-[#00897b] hover:bg-[#00796b] text-white text-xs font-bold rounded transition-colors shadow-xs hover:shadow-md cursor-pointer"
-                            title="Click to Login and Apply"
+                            title={isLoggedIn ? 'আবেদন করতে ক্লিক করুন' : 'Click to Login and Apply'}
                           >
-                            <span>Apply Now</span>
+                            <span>{isLoggedIn ? 'আবেদন করুন (Apply)' : 'Apply Now'}</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -505,11 +531,11 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
                           </button>
 
                           <button
-                            onClick={() => handleTriggerAuth('login', job.title)}
+                            onClick={() => handleApplyClick(job.title)}
                             className="flex items-center space-x-1.5 px-5 py-2 bg-[#00897b] hover:bg-[#00796b] text-white text-xs font-bold rounded transition-colors shadow-xs hover:shadow-md cursor-pointer"
-                            title="Click to Login and Apply"
+                            title={isLoggedIn ? 'আবেদন করতে ক্লিক করুন' : 'Click to Login and Apply'}
                           >
-                            <span>Apply Now</span>
+                            <span>{isLoggedIn ? 'আবেদন করুন (Apply)' : 'Apply Now'}</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -534,6 +560,14 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
           onOpenLogin={() => handleTriggerAuth('login', selectedCircular.title)}
           jobTitle={selectedCircular.title}
           organization={selectedCircular.organization}
+          isLoggedIn={isLoggedIn}
+          onApplyDirectly={(title) => {
+            setCircularModalOpen(false);
+            if (onApplyDirectly) {
+              onClose();
+              onApplyDirectly(title);
+            }
+          }}
         />
       )}
 

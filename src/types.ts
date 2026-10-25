@@ -109,4 +109,23 @@ export interface ApplicantAccount {
   appliedDate: string;
   rollNo?: string;
   isAccountCompleted?: boolean;
+  applications?: JobApplication[];
+}
+
+export interface JobApplication {
+  id: number;
+  applicantId: number;
+  applicantName: string;
+  nameBangla?: string;
+  phone: string;
+  email: string;
+  circularTitle: string;
+  postName: string; // কোন পদে আবেদন করবে
+  appliedDate: string;
+  feeStatus: 'Paid' | 'Pending';
+  feeAmount: number;
+  admitStatus: 'Ready' | 'Processing';
+  rollNo: string;
+  refNo: string;
+  bioDataSnapshot?: ApplicantAccount;
 }

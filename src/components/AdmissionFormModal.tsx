@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Printer, CheckCircle, Upload, RotateCcw } from 'lucide-react';
 import { UniversitySeal } from './UniversitySeal.tsx';
+import { BANGLADESH_DISTRICTS } from '../data/bangladeshData.ts';
 
 interface AdmissionFormModalProps {
   isOpen: boolean;
@@ -22,23 +23,48 @@ export const AdmissionFormModal: React.FC<AdmissionFormModalProps> = ({
     motherName: '',
     birthDate: '',
     gender: 'Male',
-    presentDivision: 'Rangpur',
     presentDistrict: 'Thakurgaon',
-    presentAddress: 'Bottola, Bhully Bazar',
-    permanentDivision: 'Rangpur',
+    presentUpazila: 'Thakurgaon Sadar',
+    presentAddress: '',
     permanentDistrict: 'Thakurgaon',
+    permanentUpazila: 'Thakurgaon Sadar',
     permanentAddress: '',
     religion: 'Islam',
     nationality: 'Bangladeshi',
     phoneNumber: '',
     emailAddress: '',
     nidNumber: '',
-    bloodGroup: 'B+',
-    occupation: 'Student',
+    bloodGroup: '',
+    occupation: '',
     maritalStatus: 'Single',
     courseName: defaultCourse,
     declarationAccepted: true,
   });
+
+  const getUpazilasForDistrict = (districtName: string) => {
+    const found = BANGLADESH_DISTRICTS.find(
+      (d) => d.name.toLowerCase() === (districtName || '').toLowerCase() || d.bnName === districtName
+    );
+    return found ? found.upazilas : BANGLADESH_DISTRICTS[0].upazilas;
+  };
+
+  const handlePresentDistrictChange = (newDistrict: string) => {
+    const upazilas = getUpazilasForDistrict(newDistrict);
+    setFormData((prev) => ({
+      ...prev,
+      presentDistrict: newDistrict,
+      presentUpazila: upazilas.length > 0 ? upazilas[0].en : '',
+    }));
+  };
+
+  const handlePermanentDistrictChange = (newDistrict: string) => {
+    const upazilas = getUpazilasForDistrict(newDistrict);
+    setFormData((prev) => ({
+      ...prev,
+      permanentDistrict: newDistrict,
+      permanentUpazila: upazilas.length > 0 ? upazilas[0].en : '',
+    }));
+  };
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
@@ -314,37 +340,47 @@ export const AdmissionFormModal: React.FC<AdmissionFormModalProps> = ({
               {/* Dashed Border Box: * Present Address * */}
               <div className="border border-dashed border-stone-400 p-3 sm:p-3.5 relative mt-3 pt-4">
                 <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-white px-3 font-semibold text-stone-800 text-[11px] sm:text-xs">
-                  * Present Address *
+                  * Present Address (বর্তমান ঠিকানা) *
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
-                  <div className="flex items-end">
-                    <span className="font-semibold whitespace-nowrap mr-2">Division :</span>
-                    <input
-                      type="text"
-                      value={formData.presentDivision}
-                      onChange={(e) => setFormData({ ...formData, presentDivision: e.target.value })}
-                      className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <span className="font-semibold whitespace-nowrap mr-2">District :</span>
-                    <input
-                      type="text"
+                  <div className="flex items-center space-x-2">
+                    <span className="font-semibold whitespace-nowrap text-xs">District :</span>
+                    <select
                       value={formData.presentDistrict}
-                      onChange={(e) => setFormData({ ...formData, presentDistrict: e.target.value })}
-                      className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium"
-                    />
+                      onChange={(e) => handlePresentDistrictChange(e.target.value)}
+                      className="flex-1 border-b border-dotted border-stone-500 bg-white px-1 py-1 outline-none font-medium text-xs rounded-none cursor-pointer"
+                    >
+                      {BANGLADESH_DISTRICTS.map((d) => (
+                        <option key={`adm-p-dist-${d.name}`} value={d.name}>
+                          {d.name} ({d.bnName})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-semibold whitespace-nowrap text-xs">Upazila :</span>
+                    <select
+                      value={formData.presentUpazila}
+                      onChange={(e) => setFormData({ ...formData, presentUpazila: e.target.value })}
+                      className="flex-1 border-b border-dotted border-stone-500 bg-white px-1 py-1 outline-none font-medium text-xs rounded-none cursor-pointer"
+                    >
+                      {getUpazilasForDistrict(formData.presentDistrict).map((u) => (
+                        <option key={`adm-p-up-${u.en}`} value={u.en}>
+                          {u.en} ({u.bn})
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="flex items-end">
-                  <span className="font-semibold whitespace-nowrap mr-2">Address :</span>
+                  <span className="font-semibold whitespace-nowrap mr-2 text-xs">Village / Road / Post :</span>
                   <input
                     type="text"
                     required
                     value={formData.presentAddress}
                     onChange={(e) => setFormData({ ...formData, presentAddress: e.target.value })}
-                    placeholder="Village / Road / Post Office / Upazila"
-                    className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium"
+                    placeholder="গ্রাম / রাস্তা / পোস্ট অফিস লিখুন"
+                    className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium text-xs"
                   />
                 </div>
               </div>
@@ -352,37 +388,47 @@ export const AdmissionFormModal: React.FC<AdmissionFormModalProps> = ({
               {/* Dashed Border Box: * Permanent Address * */}
               <div className="border border-dashed border-stone-400 p-3 sm:p-3.5 relative mt-4 pt-4">
                 <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-white px-3 font-semibold text-stone-800 text-[11px] sm:text-xs">
-                  * Permanent Address *
+                  * Permanent Address (স্থায়ী ঠিকানা) *
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
-                  <div className="flex items-end">
-                    <span className="font-semibold whitespace-nowrap mr-2">Division :</span>
-                    <input
-                      type="text"
-                      value={formData.permanentDivision}
-                      onChange={(e) => setFormData({ ...formData, permanentDivision: e.target.value })}
-                      className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <span className="font-semibold whitespace-nowrap mr-2">District :</span>
-                    <input
-                      type="text"
+                  <div className="flex items-center space-x-2">
+                    <span className="font-semibold whitespace-nowrap text-xs">District :</span>
+                    <select
                       value={formData.permanentDistrict}
-                      onChange={(e) => setFormData({ ...formData, permanentDistrict: e.target.value })}
-                      className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium"
-                    />
+                      onChange={(e) => handlePermanentDistrictChange(e.target.value)}
+                      className="flex-1 border-b border-dotted border-stone-500 bg-white px-1 py-1 outline-none font-medium text-xs rounded-none cursor-pointer"
+                    >
+                      {BANGLADESH_DISTRICTS.map((d) => (
+                        <option key={`adm-perm-dist-${d.name}`} value={d.name}>
+                          {d.name} ({d.bnName})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-semibold whitespace-nowrap text-xs">Upazila :</span>
+                    <select
+                      value={formData.permanentUpazila}
+                      onChange={(e) => setFormData({ ...formData, permanentUpazila: e.target.value })}
+                      className="flex-1 border-b border-dotted border-stone-500 bg-white px-1 py-1 outline-none font-medium text-xs rounded-none cursor-pointer"
+                    >
+                      {getUpazilasForDistrict(formData.permanentDistrict).map((u) => (
+                        <option key={`adm-perm-up-${u.en}`} value={u.en}>
+                          {u.en} ({u.bn})
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="flex items-end">
-                  <span className="font-semibold whitespace-nowrap mr-2">Address :</span>
+                  <span className="font-semibold whitespace-nowrap mr-2 text-xs">Village / Road / Post :</span>
                   <input
                     type="text"
                     required
                     value={formData.permanentAddress}
                     onChange={(e) => setFormData({ ...formData, permanentAddress: e.target.value })}
-                    placeholder="Same as present address or permanent village/thana"
-                    className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium"
+                    placeholder="স্থায়ী গ্রাম / রাস্তা / পোস্ট অফিস লিখুন"
+                    className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium text-xs"
                   />
                 </div>
               </div>
@@ -411,14 +457,14 @@ export const AdmissionFormModal: React.FC<AdmissionFormModalProps> = ({
 
               {/* Phone Number & Email Address */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                <div className="flex items-end">
+                 <div className="flex items-end">
                   <span className="font-semibold whitespace-nowrap min-w-[110px]">Phone Number :</span>
                   <input
                     type="tel"
                     required
                     value={formData.phoneNumber}
                     onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                    placeholder="01XXXXXXXXX"
+                    placeholder=""
                     className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium"
                   />
                 </div>
@@ -428,7 +474,7 @@ export const AdmissionFormModal: React.FC<AdmissionFormModalProps> = ({
                     type="email"
                     value={formData.emailAddress}
                     onChange={(e) => setFormData({ ...formData, emailAddress: e.target.value })}
-                    placeholder="example@gmail.com"
+                    placeholder=""
                     className="flex-1 border-b border-dotted border-stone-500 bg-transparent px-1 py-0.5 outline-none font-medium"
                   />
                 </div>

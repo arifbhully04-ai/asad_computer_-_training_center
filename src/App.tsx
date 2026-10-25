@@ -16,7 +16,8 @@ import { LoginModal, LoginRole } from './components/LoginModal.tsx';
 import { StudentDashboard } from './components/StudentDashboard.tsx';
 import { ApplicantDashboard } from './components/ApplicantDashboard.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
-import { SlideData, ModalContent, NoticeItem, StudentAccount, ApplicantAccount } from './types.ts';
+import { ApplicationPermissionModal } from './components/ApplicationPermissionModal.tsx';
+import { SlideData, ModalContent, NoticeItem, StudentAccount, ApplicantAccount, JobApplication } from './types.ts';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'student-dashboard' | 'applicant-dashboard' | 'admin-dashboard'>('home');
@@ -147,124 +148,96 @@ export default function App() {
   const [applicants, setApplicants] = useState<ApplicantAccount[]>([
     {
       id: 1,
-      applicantName: 'Rashidul Islam',
-      nameBangla: 'রাশিদুল ইসলাম',
-      fatherName: 'Md. Rafiqul Islam',
-      fatherNameBangla: 'মোঃ রফিকুল ইসলাম',
-      motherName: 'Mst. Rokeya Begum',
-      motherNameBangla: 'মোছাঃ রোকেয়া বেগম',
-      dob: '1998-05-14',
-      ageText: '28 Years 05 Months 10 Days',
+      applicantName: '',
+      nameBangla: '',
+      fatherName: '',
+      fatherNameBangla: '',
+      motherName: '',
+      motherNameBangla: '',
+      dob: '',
+      ageText: '',
       gender: 'Male',
       nationality: 'Bangladeshi',
       religion: 'Islam',
-      nidNumber: '19989419400000124',
-      birthRegNo: '19989419400012345',
-      passportId: 'N/A',
+      nidNumber: '',
+      birthRegNo: '',
+      passportId: '',
       maritalStatus: 'Single',
+      spouseName: '',
       quota: 'Non-Quota',
       departmentalStatus: 'None',
-      phone: '01773-733654',
-      email: 'rashidul.applicant@gmail.com',
+      phone: '',
+      email: '',
       password: 'applicantpass',
-      jobTitle: 'Primary DPE Computer Operator',
-      refNo: 'ACTC-APP-8192',
-      feeStatus: 'Paid',
-      feeAmount: 220,
-      admitStatus: 'Ready',
-      appliedDate: '18 Oct 2026',
-      rollNo: '819204',
-      typingSpeedBangla: '30 WPM',
-      typingSpeedEnglish: '42 WPM',
-      computerExperience: '6-Months Govt Certified Computer Office Application (MS Word, Excel, Access, Internet)',
-      isAccountCompleted: true,
+      jobTitle: '',
+      refNo: '',
+      feeStatus: 'Pending',
+      feeAmount: 0,
+      admitStatus: 'Processing',
+      appliedDate: '',
+      rollNo: '',
+      typingSpeedBangla: '',
+      typingSpeedEnglish: '',
+      computerExperience: '',
+      isAccountCompleted: false,
       presentAddress: {
-        careOf: 'Md. Rafiqul Islam',
-        village: 'Bottola, Bhully Bazar',
+        careOf: '',
+        village: '',
         district: 'Thakurgaon',
         upazila: 'Thakurgaon Sadar',
-        postOffice: 'Bhully',
-        postCode: '5100',
+        postOffice: '',
+        postCode: '',
       },
       permanentAddress: {
-        careOf: 'Md. Rafiqul Islam',
-        village: 'Bottola, Bhully Bazar',
+        careOf: '',
+        village: '',
         district: 'Thakurgaon',
         upazila: 'Thakurgaon Sadar',
-        postOffice: 'Bhully',
-        postCode: '5100',
+        postOffice: '',
+        postCode: '',
       },
       educationList: [
         {
-          id: '1',
-          exam: 'S.S.C / Dakhil / Equivalent',
+          id: 'ssc',
+          exam: 'S.S.C',
           board: 'Dinajpur',
-          roll: '492014',
-          result: 'GPA 4.88',
+          roll: '',
+          result: '',
           group: 'Science',
-          passingYear: '2018',
+          passingYear: '',
           duration: '2 Years',
         },
         {
-          id: '2',
-          exam: 'H.S.C / Alim / Equivalent',
+          id: 'hsc',
+          exam: 'H.S.C',
           board: 'Dinajpur',
-          roll: '318920',
-          result: 'GPA 4.50',
+          roll: '',
+          result: '',
           group: 'Science',
-          passingYear: '2020',
+          passingYear: '',
           duration: '2 Years',
         },
         {
-          id: '3',
+          id: 'graduation',
           exam: 'Graduation / Degree / Honors',
-          board: 'National University',
-          roll: '819204',
-          result: 'CGPA 3.42',
-          group: 'B.Sc in Computer Science & Engineering',
-          passingYear: '2024',
+          board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
+          roll: '',
+          result: '',
+          group: 'Computer Science & Engineering (CSE)',
+          passingYear: '',
           duration: '4 Years',
         },
+        {
+          id: 'masters',
+          exam: 'Masters',
+          board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
+          roll: '',
+          result: '',
+          group: 'Computer Science & Engineering (CSE)',
+          passingYear: '',
+          duration: '1 Year',
+        },
       ],
-    },
-    {
-      id: 2,
-      applicantName: 'Kamrul Hasan',
-      phone: '01864-399871',
-      email: 'kamrul.railway@gmail.com',
-      password: 'applicantpass',
-      jobTitle: 'Bangladesh Railway Office Assistant',
-      feeStatus: 'Paid',
-      feeAmount: 150,
-      admitStatus: 'Processing',
-      appliedDate: '16 Oct 2026',
-      rollNo: 'BR-92014',
-    },
-    {
-      id: 3,
-      applicantName: 'Farhana Akter',
-      phone: '01911-223344',
-      email: 'farhana.akter@gmail.com',
-      password: 'applicantpass',
-      jobTitle: 'DGHS Office Assistant cum Typist',
-      feeStatus: 'Pending',
-      feeAmount: 200,
-      admitStatus: 'Processing',
-      appliedDate: '15 Oct 2026',
-      rollNo: 'DGHS-4401',
-    },
-    {
-      id: 4,
-      applicantName: 'Sohel Rana',
-      phone: '01755-667788',
-      email: 'sohel.admission@gmail.com',
-      password: 'applicantpass',
-      jobTitle: 'Dhaka University Online Admission',
-      feeStatus: 'Paid',
-      feeAmount: 1000,
-      admitStatus: 'Ready',
-      appliedDate: '10 Oct 2026',
-      rollNo: 'DU-891024',
     },
   ]);
 
@@ -305,6 +278,67 @@ export default function App() {
     setApplicants((prev) =>
       prev.map((a) => (a.id === updatedApplicant.id ? updatedApplicant : a))
     );
+  };
+
+  // Global Job Applications submitted by applicants with specific post names
+  const [jobApplications, setJobApplications] = useState<JobApplication[]>([]);
+  const [pendingCircularForPermission, setPendingCircularForPermission] = useState<string | null>(null);
+
+  // Handlers for Job Applications
+  const handleApplyJob = (postName: string, circularTitle: string) => {
+    const applicant = applicants.find((a) => a.id === currentApplicantId) || applicants[0];
+    const newRoll = `ACTC-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newRef = `APP-${Math.floor(1000 + Math.random() * 9000)}`;
+    const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const newApp: JobApplication = {
+      id: Date.now(),
+      applicantId: applicant.id,
+      applicantName: applicant.applicantName || 'Applicant',
+      nameBangla: applicant.nameBangla,
+      phone: applicant.phone,
+      email: applicant.email,
+      circularTitle: circularTitle,
+      postName: postName,
+      appliedDate: today,
+      feeStatus: 'Paid',
+      feeAmount: 220,
+      admitStatus: 'Processing',
+      rollNo: newRoll,
+      refNo: newRef,
+      bioDataSnapshot: {
+        ...applicant,
+        jobTitle: postName,
+        rollNo: newRoll,
+        refNo: newRef,
+        appliedDate: today,
+      },
+    };
+
+    setJobApplications((prev) => [newApp, ...prev]);
+
+    const updatedApplicant: ApplicantAccount = {
+      ...applicant,
+      jobTitle: postName,
+      rollNo: newRoll,
+      refNo: newRef,
+      feeStatus: 'Paid',
+      feeAmount: 220,
+      appliedDate: today,
+      applications: [newApp, ...(applicant.applications || [])],
+    };
+    handleUpdateApplicant(updatedApplicant);
+    setPendingCircularForPermission(null);
+  };
+
+  const handleUpdateJobApplication = (updatedApp: JobApplication) => {
+    setJobApplications((prev) =>
+      prev.map((a) => (a.id === updatedApp.id ? updatedApp : a))
+    );
+  };
+
+  const handleDeleteJobApplication = (id: number) => {
+    setJobApplications((prev) => prev.filter((a) => a.id !== id));
   };
 
   const handleDeleteApplicant = (id: number) => {
@@ -402,6 +436,10 @@ export default function App() {
       if (user && 'applicantName' in user) {
         setCurrentApplicantId(user.id);
       }
+      if (selectedJobTitleForLogin) {
+        setPendingCircularForPermission(selectedJobTitleForLogin);
+        setSelectedJobTitleForLogin(undefined);
+      }
       setCurrentView('applicant-dashboard');
     }
   };
@@ -430,7 +468,11 @@ export default function App() {
         onOpenJobPortal={() => setJobPortalOpen(true)}
         applicantData={currentApplicant}
         onUpdateApplicant={handleUpdateApplicant}
-        notices={notices.filter((n) => n.category === 'Applicant' || n.category === 'General')}
+        notices={notices}
+        jobApplications={jobApplications}
+        onApplyJob={handleApplyJob}
+        initialPendingCircular={pendingCircularForPermission}
+        onClearInitialPendingCircular={() => setPendingCircularForPermission(null)}
       />
     );
   }
@@ -451,6 +493,9 @@ export default function App() {
         applicants={applicants}
         onUpdateApplicant={handleUpdateApplicant}
         onDeleteApplicant={handleDeleteApplicant}
+        jobApplications={jobApplications}
+        onUpdateJobApplication={handleUpdateJobApplication}
+        onDeleteJobApplication={handleDeleteJobApplication}
       />
     );
   }

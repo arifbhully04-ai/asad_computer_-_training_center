@@ -229,8 +229,9 @@ export const ApplicationPermissionModal: React.FC<ApplicationPermissionModalProp
                     </span>
                   </div>
                 </div>
-                <p className="text-[10px] text-blue-800 leading-relaxed border-t border-blue-200/60 pt-1.5">
-                  আবেদনটি সাবমিট করার পর আমাদের আসাদ কম্পিউটার সেন্টারের এডমিন প্যানেলে সকল তথ্য সরাসরি রেকর্ড হয়ে যাবে।
+                <p className="text-[10px] text-blue-800 leading-relaxed border-t border-blue-200/60 pt-1.5 flex items-center space-x-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse inline-block shrink-0"></span>
+                  <span>আবেদন সাবমিট করলে তাৎক্ষণিক স্ট্যাটাস <strong>'প্রক্রিয়াধীন' (Processing)</strong> থাকবে। এডমিন যাচাই করে সম্পন্ন করলে 'সম্পন্ন' দেখাবে।</span>
                 </p>
               </div>
             </div>

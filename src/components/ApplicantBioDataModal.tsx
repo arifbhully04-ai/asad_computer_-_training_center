@@ -24,6 +24,7 @@ import {
   PASSING_YEARS,
   EDUCATION_LEVELS,
 } from '../data/bangladeshData.ts';
+import { ApplicationStatusBadge } from './ApplicationStatusBadge.tsx';
 
 interface ApplicantBioDataModalProps {
   isOpen: boolean;
@@ -1373,6 +1374,9 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     </div>
                   )}
                   <div>
+                    <ApplicationStatusBadge status={formData.admitStatus} size="xs" />
+                  </div>
+                  <div>
                     Date: <span className="text-stone-800">{formData.appliedDate || 'Online Submission'}</span>
                   </div>
                 </div>
@@ -1512,8 +1516,15 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                     <div>
                       <strong>Computer Certification / Training:</strong> {formData.computerExperience || 'Certified in Computer Office Application (Microsoft Office, Excel, Access, Internet)'}
                     </div>
-                    <div>
-                      <strong>Fee Payment Status:</strong> <span className="font-bold text-emerald-700">{formData.feeStatus || 'Paid'} (৳ {formData.feeAmount || 220})</span> · Admit Card: <span className="font-bold">{formData.admitStatus || 'Processing'}</span>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <div>
+                        <strong>ফি স্ট্যাটাস (Fee Status):</strong> <span className="font-bold text-emerald-700">{formData.feeStatus || 'Paid'} (৳ {formData.feeAmount || 220})</span>
+                      </div>
+                      <span className="text-stone-300">|</span>
+                      <div className="flex items-center space-x-1.5">
+                        <strong>আবেদন স্ট্যাটাস:</strong>
+                        <ApplicationStatusBadge status={formData.admitStatus} size="xs" />
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar.tsx';
 import { HeroSlider } from './components/HeroSlider.tsx';
 import { WelcomeSection } from './components/WelcomeSection.tsx';
@@ -18,9 +18,271 @@ import { ApplicantDashboard } from './components/ApplicantDashboard.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { ApplicationPermissionModal } from './components/ApplicationPermissionModal.tsx';
 import { SlideData, ModalContent, NoticeItem, StudentAccount, ApplicantAccount, JobApplication } from './types.ts';
+import {
+  loadPersistentApplicants,
+  savePersistentApplicants,
+  loadPersistentStudents,
+  savePersistentStudents,
+  loadPersistentJobApplications,
+  savePersistentJobApplications,
+  loadPersistentNotices,
+  savePersistentNotices,
+  loadPersistentSession,
+  savePersistentSession,
+  downloadDatabaseBackupFile,
+  restoreDatabaseFromBackup,
+} from './utils/storageManager.ts';
+
+const defaultNoticesList: NoticeItem[] = [
+  {
+    id: 1,
+    title: 'New Computer Office Application Batch starts from 1st of next month',
+    category: 'Student',
+    date: '24 Oct 2026',
+    description: 'Morning and Evening batches admission is ongoing. Limited seats for 3-Month & 6-Month courses. Technical Education Board certified curriculum.',
+    urgent: true,
+    pdfName: 'ACTC_Office_Application_Batch_Notice_2026.pdf',
+  },
+  {
+    id: 2,
+    title: 'Primary DPE Written Examination Admit Card download has started',
+    category: 'Applicant',
+    date: '22 Oct 2026',
+    description: 'Directorate of Primary Education (DPE) Assistant Teacher exam admit card is now available. Download your admit card using User ID and Password.',
+    urgent: true,
+    pdfName: 'Primary_DPE_Admit_Card_Download_Notice.pdf',
+  },
+  {
+    id: 3,
+    title: 'Bangladesh Railway Data Entry Operator final application deadline 15 Dec',
+    category: 'Applicant',
+    date: '20 Oct 2026',
+    description: 'Submit your online form before 15 December with photo and signature. Collect submitted copy from our Asad Computer service desk.',
+    urgent: false,
+    pdfName: 'BR_Data_Entry_Circular_Guidelines.pdf',
+  },
+  {
+    id: 4,
+    title: 'Govt Technical Education Board 6-Month Certificate Verification Open',
+    category: 'General',
+    date: '18 Oct 2026',
+    description: 'Roll verification and registration card distribution for July-December semester is open. Contact institute office at Bottola, Bhully Bazar.',
+    urgent: false,
+    pdfName: 'BTEB_Certificate_Verification_Process.pdf',
+  },
+];
+
+const defaultStudentsList: StudentAccount[] = [
+  {
+    id: 1,
+    name: 'Sabbir Ahmed',
+    rollNo: 'ACTC-2026-084',
+    course: 'Computer Office Application (6 Months)',
+    batch: 'Morning (10 AM - 12 PM)',
+    phone: '01712-345678',
+    email: 'sabbir.student@gmail.com',
+    password: 'password123',
+    totalFee: 4000,
+    paidFee: 2500,
+    dueFee: 1500,
+    lastPaymentDate: '15 Oct 2026',
+    typingSpeed: '42 WPM (Eng) / 30 WPM (Ban)',
+    attendance: '96%',
+    status: 'Active',
+  },
+  {
+    id: 2,
+    name: 'Nusrat Jahan',
+    rollNo: 'ACTC-2026-085',
+    course: 'Computer Office Application (3 Months)',
+    batch: 'Evening (4 PM - 6 PM)',
+    phone: '01823-456789',
+    email: 'nusrat.j@gmail.com',
+    password: 'password123',
+    totalFee: 2500,
+    paidFee: 2500,
+    dueFee: 0,
+    lastPaymentDate: '20 Oct 2026',
+    typingSpeed: '38 WPM (Eng) / 28 WPM (Ban)',
+    attendance: '92%',
+    status: 'Active',
+  },
+  {
+    id: 3,
+    name: 'Tanvir Hossain',
+    rollNo: 'ACTC-2026-072',
+    course: 'Computer Office Application (6 Months)',
+    batch: 'Friday Special Batch',
+    phone: '01934-567890',
+    email: 'tanvir.actc@gmail.com',
+    password: 'password123',
+    totalFee: 4000,
+    paidFee: 4000,
+    dueFee: 0,
+    lastPaymentDate: '05 Oct 2026',
+    typingSpeed: '45 WPM (Eng) / 35 WPM (Ban)',
+    attendance: '98%',
+    status: 'Certified',
+  },
+  {
+    id: 4,
+    name: 'Mehedi Hasan',
+    rollNo: 'ACTC-2026-090',
+    course: 'Computer Office Application (3 Months)',
+    batch: 'Morning (8 AM - 10 AM)',
+    phone: '01777-889900',
+    email: 'mehedi.it@gmail.com',
+    password: 'password123',
+    totalFee: 2500,
+    paidFee: 1500,
+    dueFee: 1000,
+    lastPaymentDate: '10 Oct 2026',
+    typingSpeed: '32 WPM (Eng) / 22 WPM (Ban)',
+    attendance: '88%',
+    status: 'Active',
+  },
+];
+
+const defaultApplicantsList: ApplicantAccount[] = [
+  {
+    id: 101,
+    applicantName: 'Md. Tariqul Islam',
+    nameBangla: 'মোঃ তরিকুল ইসলাম',
+    fatherName: 'Md. Rafiqul Islam',
+    fatherNameBangla: 'মোঃ রফিকুল ইসলাম',
+    motherName: 'Tahmina Begum',
+    motherNameBangla: 'তাহমিনা বেগম',
+    dob: '1998-05-12',
+    ageText: '28 Years 5 Months',
+    gender: 'Male',
+    nationality: 'Bangladeshi',
+    religion: 'Islam',
+    nidNumber: '19989419400000123',
+    birthRegNo: '19989419412345678',
+    passportId: '',
+    maritalStatus: 'Single',
+    spouseName: '',
+    quota: 'Non-Quota',
+    departmentalStatus: 'None',
+    phone: '01712-345678',
+    email: 'applicant@gmail.com',
+    password: 'applicantpass',
+    jobTitle: 'সহকারী শিক্ষক (Assistant Teacher)',
+    refNo: 'APP-7291',
+    feeStatus: 'Paid',
+    feeAmount: 220,
+    admitStatus: 'Processing',
+    status: 'Processing',
+    appliedDate: '25 Oct 2026',
+    rollNo: 'ACTC-892145',
+    typingSpeedBangla: '32 WPM',
+    typingSpeedEnglish: '42 WPM',
+    computerExperience: 'Computer Office Application 6 Months (BTEB Certified)',
+    isAccountCompleted: true,
+    presentAddress: {
+      careOf: 'Md. Rafiqul Islam',
+      village: 'Bottola, Bhully Bazar',
+      district: 'Thakurgaon',
+      upazila: 'Thakurgaon Sadar',
+      postOffice: 'Bhully',
+      postCode: '5100',
+    },
+    permanentAddress: {
+      careOf: 'Md. Rafiqul Islam',
+      village: 'Bottola, Bhully Bazar',
+      district: 'Thakurgaon',
+      upazila: 'Thakurgaon Sadar',
+      postOffice: 'Bhully',
+      postCode: '5100',
+    },
+    educationList: [
+      {
+        id: 'ssc',
+        exam: 'S.S.C',
+        board: 'Dinajpur',
+        roll: '458120',
+        result: 'GPA 4.85 (Scale 5.00)',
+        group: 'Science',
+        passingYear: '2014',
+        duration: '2 Years',
+      },
+      {
+        id: 'hsc',
+        exam: 'H.S.C',
+        board: 'Dinajpur',
+        roll: '210943',
+        result: 'GPA 4.60 (Scale 5.00)',
+        group: 'Science',
+        passingYear: '2016',
+        duration: '2 Years',
+      },
+      {
+        id: 'graduation',
+        exam: 'Graduation / Degree / Honors',
+        board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
+        roll: '782910',
+        result: 'CGPA 3.45 (Scale 4.00)',
+        group: 'Computer Science & Engineering (CSE)',
+        passingYear: '2020',
+        duration: '4 Years',
+      },
+      {
+        id: 'masters',
+        exam: 'Masters',
+        board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
+        roll: '918234',
+        result: 'CGPA 3.55 (Scale 4.00)',
+        group: 'Computer Science & Engineering (CSE)',
+        passingYear: '2022',
+        duration: '1 Year',
+      },
+    ],
+  },
+];
+
+const defaultJobApplicationsList: JobApplication[] = [
+  {
+    id: 1001,
+    applicantId: 101,
+    applicantName: 'Md. Tariqul Islam',
+    nameBangla: 'মোঃ তরিকুল ইসলাম',
+    phone: '01712-345678',
+    email: 'applicant@gmail.com',
+    circularTitle: 'Directorate of Primary Education (DPE) Assistant Teacher Recruitment',
+    postName: 'সহকারী শিক্ষক (Assistant Teacher)',
+    appliedDate: '25 Oct 2026',
+    feeStatus: 'Paid',
+    feeAmount: 220,
+    admitStatus: 'Processing',
+    status: 'Processing',
+    rollNo: 'ACTC-892145',
+    refNo: 'APP-7291',
+    bioDataSnapshot: defaultApplicantsList[0],
+  },
+  {
+    id: 1002,
+    applicantId: 101,
+    applicantName: 'Md. Tariqul Islam',
+    nameBangla: 'মোঃ তরিকুল ইসলাম',
+    phone: '01712-345678',
+    email: 'applicant@gmail.com',
+    circularTitle: 'Bangladesh Railway (BR) Data Entry Operator Circular',
+    postName: 'ডাটা এন্ট্রি অপারেটর (Data Entry Operator)',
+    appliedDate: '20 Oct 2026',
+    feeStatus: 'Paid',
+    feeAmount: 220,
+    admitStatus: 'Ready',
+    status: 'Completed',
+    rollNo: 'ACTC-458120',
+    refNo: 'APP-3810',
+    bioDataSnapshot: defaultApplicantsList[0],
+  },
+];
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'student-dashboard' | 'applicant-dashboard' | 'admin-dashboard'>('home');
+  // Session persistence across all keys
+  const savedSession = loadPersistentSession<{ currentView?: any; currentApplicantId?: number; currentStudentId?: number }>({});
+  const [currentView, setCurrentView] = useState<'home' | 'student-dashboard' | 'applicant-dashboard' | 'admin-dashboard'>(savedSession.currentView || 'home');
   
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<ModalContent | null>(null);
@@ -34,257 +296,157 @@ export default function App() {
   const [loginRole, setLoginRole] = useState<LoginRole>('applicant');
   const [loginMode, setLoginMode] = useState<'login' | 'register'>('login');
 
-  // Shared System State across Admin, Student, and Applicant portals
-  const [notices, setNotices] = useState<NoticeItem[]>([
-    {
-      id: 1,
-      title: 'New Computer Office Application Batch starts from 1st of next month',
-      category: 'Student',
-      date: '24 Oct 2026',
-      description: 'Morning and Evening batches admission is ongoing. Limited seats for 3-Month & 6-Month courses. Technical Education Board certified curriculum.',
-      urgent: true,
-      pdfName: 'ACTC_Office_Application_Batch_Notice_2026.pdf',
-    },
-    {
-      id: 2,
-      title: 'Primary DPE Written Examination Admit Card download has started',
-      category: 'Applicant',
-      date: '22 Oct 2026',
-      description: 'Directorate of Primary Education (DPE) Assistant Teacher exam admit card is now available. Download your admit card using User ID and Password.',
-      urgent: true,
-      pdfName: 'Primary_DPE_Admit_Card_Download_Notice.pdf',
-    },
-    {
-      id: 3,
-      title: 'Bangladesh Railway Data Entry Operator final application deadline 15 Dec',
-      category: 'Applicant',
-      date: '20 Oct 2026',
-      description: 'Submit your online form before 15 December with photo and signature. Collect submitted copy from our Asad Computer service desk.',
-      urgent: false,
-      pdfName: 'BR_Data_Entry_Circular_Guidelines.pdf',
-    },
-    {
-      id: 4,
-      title: 'Govt Technical Education Board 6-Month Certificate Verification Open',
-      category: 'General',
-      date: '18 Oct 2026',
-      description: 'Roll verification and registration card distribution for July-December semester is open. Contact institute office at Bottola, Bhully Bazar.',
-      urgent: false,
-      pdfName: 'BTEB_Certificate_Verification_Process.pdf',
-    },
-  ]);
+  // Shared System State persisted across all keys to prevent ANY loss on website reload/update
+  const [notices, setNotices] = useState<NoticeItem[]>(() =>
+    loadPersistentNotices(defaultNoticesList)
+  );
 
-  const [students, setStudents] = useState<StudentAccount[]>([
-    {
-      id: 1,
-      name: 'Sabbir Ahmed',
-      rollNo: 'ACTC-2026-084',
-      course: 'Computer Office Application (6 Months)',
-      batch: 'Morning (10 AM - 12 PM)',
-      phone: '01712-345678',
-      email: 'sabbir.student@gmail.com',
-      password: 'password123',
-      totalFee: 4000,
-      paidFee: 2500,
-      dueFee: 1500,
-      lastPaymentDate: '15 Oct 2026',
-      typingSpeed: '42 WPM (Eng) / 30 WPM (Ban)',
-      attendance: '96%',
-      status: 'Active',
-    },
-    {
-      id: 2,
-      name: 'Nusrat Jahan',
-      rollNo: 'ACTC-2026-085',
-      course: 'Computer Office Application (3 Months)',
-      batch: 'Evening (4 PM - 6 PM)',
-      phone: '01823-456789',
-      email: 'nusrat.j@gmail.com',
-      password: 'password123',
-      totalFee: 2500,
-      paidFee: 2500,
-      dueFee: 0,
-      lastPaymentDate: '20 Oct 2026',
-      typingSpeed: '38 WPM (Eng) / 28 WPM (Ban)',
-      attendance: '92%',
-      status: 'Active',
-    },
-    {
-      id: 3,
-      name: 'Tanvir Hossain',
-      rollNo: 'ACTC-2026-072',
-      course: 'Computer Office Application (6 Months)',
-      batch: 'Friday Special Batch',
-      phone: '01934-567890',
-      email: 'tanvir.actc@gmail.com',
-      password: 'password123',
-      totalFee: 4000,
-      paidFee: 4000,
-      dueFee: 0,
-      lastPaymentDate: '05 Oct 2026',
-      typingSpeed: '45 WPM (Eng) / 35 WPM (Ban)',
-      attendance: '98%',
-      status: 'Certified',
-    },
-    {
-      id: 4,
-      name: 'Mehedi Hasan',
-      rollNo: 'ACTC-2026-090',
-      course: 'Computer Office Application (3 Months)',
-      batch: 'Morning (8 AM - 10 AM)',
-      phone: '01777-889900',
-      email: 'mehedi.it@gmail.com',
-      password: 'password123',
-      totalFee: 2500,
-      paidFee: 1500,
-      dueFee: 1000,
-      lastPaymentDate: '10 Oct 2026',
-      typingSpeed: '32 WPM (Eng) / 22 WPM (Ban)',
-      attendance: '88%',
-      status: 'Active',
-    },
-  ]);
+  const [students, setStudents] = useState<StudentAccount[]>(() =>
+    loadPersistentStudents(defaultStudentsList)
+  );
 
-  const [applicants, setApplicants] = useState<ApplicantAccount[]>([
-    {
-      id: 1,
-      applicantName: '',
-      nameBangla: '',
-      fatherName: '',
-      fatherNameBangla: '',
-      motherName: '',
-      motherNameBangla: '',
-      dob: '',
-      ageText: '',
-      gender: 'Male',
-      nationality: 'Bangladeshi',
-      religion: 'Islam',
-      nidNumber: '',
-      birthRegNo: '',
-      passportId: '',
-      maritalStatus: 'Single',
-      spouseName: '',
-      quota: 'Non-Quota',
-      departmentalStatus: 'None',
-      phone: '',
-      email: '',
-      password: 'applicantpass',
-      jobTitle: '',
-      refNo: '',
-      feeStatus: 'Pending',
-      feeAmount: 0,
-      admitStatus: 'Processing',
-      appliedDate: '',
-      rollNo: '',
-      typingSpeedBangla: '',
-      typingSpeedEnglish: '',
-      computerExperience: '',
-      isAccountCompleted: false,
-      presentAddress: {
-        careOf: '',
-        village: '',
-        district: 'Thakurgaon',
-        upazila: 'Thakurgaon Sadar',
-        postOffice: '',
-        postCode: '',
-      },
-      permanentAddress: {
-        careOf: '',
-        village: '',
-        district: 'Thakurgaon',
-        upazila: 'Thakurgaon Sadar',
-        postOffice: '',
-        postCode: '',
-      },
-      educationList: [
-        {
-          id: 'ssc',
-          exam: 'S.S.C',
-          board: 'Dinajpur',
-          roll: '',
-          result: '',
-          group: 'Science',
-          passingYear: '',
-          duration: '2 Years',
-        },
-        {
-          id: 'hsc',
-          exam: 'H.S.C',
-          board: 'Dinajpur',
-          roll: '',
-          result: '',
-          group: 'Science',
-          passingYear: '',
-          duration: '2 Years',
-        },
-        {
-          id: 'graduation',
-          exam: 'Graduation / Degree / Honors',
-          board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
-          roll: '',
-          result: '',
-          group: 'Computer Science & Engineering (CSE)',
-          passingYear: '',
-          duration: '4 Years',
-        },
-        {
-          id: 'masters',
-          exam: 'Masters',
-          board: 'National University (জাতীয় বিশ্ববিদ্যালয়)',
-          roll: '',
-          result: '',
-          group: 'Computer Science & Engineering (CSE)',
-          passingYear: '',
-          duration: '1 Year',
-        },
-      ],
-    },
-  ]);
+  const [applicants, setApplicants] = useState<ApplicantAccount[]>(() =>
+    loadPersistentApplicants(defaultApplicantsList)
+  );
 
-  const [currentStudentId, setCurrentStudentId] = useState<number>(1);
-  const [currentApplicantId, setCurrentApplicantId] = useState<number>(1);
+  const [currentStudentId, setCurrentStudentId] = useState<number>(() =>
+    savedSession.currentStudentId || 1
+  );
+  const [currentApplicantId, setCurrentApplicantId] = useState<number>(() =>
+    savedSession.currentApplicantId || (defaultApplicantsList[0]?.id || 101)
+  );
+
+  // Global Job Applications persisted across keys
+  const [jobApplications, setJobApplications] = useState<JobApplication[]>(() =>
+    loadPersistentJobApplications(defaultJobApplicationsList)
+  );
+  const [pendingCircularForPermission, setPendingCircularForPermission] = useState<string | null>(null);
+
+  // Synchronize state changes to permanent storage
+  useEffect(() => {
+    savePersistentNotices(notices);
+  }, [notices]);
+
+  useEffect(() => {
+    savePersistentStudents(students);
+  }, [students]);
+
+  useEffect(() => {
+    savePersistentApplicants(applicants);
+  }, [applicants]);
+
+  useEffect(() => {
+    savePersistentJobApplications(jobApplications);
+  }, [jobApplications]);
+
+  useEffect(() => {
+    savePersistentSession({ currentView, currentApplicantId, currentStudentId });
+  }, [currentView, currentApplicantId, currentStudentId]);
 
   // Handlers for Notices
   const handleAddNotice = (notice: NoticeItem) => {
-    setNotices((prev) => [notice, ...prev]);
+    setNotices((prev) => {
+      const next = [notice, ...prev];
+      savePersistentNotices(next);
+      return next;
+    });
   };
 
   const handleDeleteNotice = (id: number) => {
-    setNotices((prev) => prev.filter((n) => n.id !== id));
+    setNotices((prev) => {
+      const next = prev.filter((n) => n.id !== id);
+      savePersistentNotices(next);
+      return next;
+    });
   };
 
   // Handlers for Students
   const handleUpdateStudent = (updatedStudent: StudentAccount) => {
-    setStudents((prev) =>
-      prev.map((s) => (s.id === updatedStudent.id ? updatedStudent : s))
-    );
+    setStudents((prev) => {
+      const next = prev.map((s) => (s.id === updatedStudent.id ? updatedStudent : s));
+      savePersistentStudents(next);
+      return next;
+    });
   };
 
   const handleAddStudent = (newStudent: StudentAccount) => {
-    setStudents((prev) => [newStudent, ...prev]);
+    setStudents((prev) => {
+      const next = [newStudent, ...prev];
+      savePersistentStudents(next);
+      return next;
+    });
   };
 
   const handleDeleteStudent = (id: number) => {
-    setStudents((prev) => prev.filter((s) => s.id !== id));
+    setStudents((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      savePersistentStudents(next);
+      return next;
+    });
   };
 
   // Handlers for Applicants
   const handleAddApplicant = (newApplicant: ApplicantAccount) => {
-    setApplicants((prev) => [newApplicant, ...prev]);
+    setApplicants((prev) => {
+      const exists = prev.some(
+        (a) =>
+          a.id === newApplicant.id ||
+          (a.phone && cleanPhone(a.phone) === cleanPhone(newApplicant.phone)) ||
+          (a.email && a.email.toLowerCase() === newApplicant.email.toLowerCase())
+      );
+      const nextList = exists
+        ? prev.map((a) =>
+            a.id === newApplicant.id ||
+            (a.phone && cleanPhone(a.phone) === cleanPhone(newApplicant.phone)) ||
+            (a.email && a.email.toLowerCase() === newApplicant.email.toLowerCase())
+              ? { ...a, ...newApplicant }
+              : a
+          )
+        : [newApplicant, ...prev];
+      savePersistentApplicants(nextList);
+      return nextList;
+    });
     setCurrentApplicantId(newApplicant.id);
   };
 
   const handleUpdateApplicant = (updatedApplicant: ApplicantAccount) => {
-    setApplicants((prev) =>
-      prev.map((a) => (a.id === updatedApplicant.id ? updatedApplicant : a))
-    );
+    setApplicants((prev) => {
+      const nextList = prev.map((a) => (a.id === updatedApplicant.id ? updatedApplicant : a));
+      savePersistentApplicants(nextList);
+      return nextList;
+    });
+    // Also update any bioDataSnapshot in jobApplications for this applicant
+    setJobApplications((prevApps) => {
+      const nextApps = prevApps.map((app) =>
+        app.applicantId === updatedApplicant.id
+          ? { ...app, bioDataSnapshot: { ...updatedApplicant, jobTitle: app.postName } }
+          : app
+      );
+      savePersistentJobApplications(nextApps);
+      return nextApps;
+    });
   };
 
-  // Global Job Applications submitted by applicants with specific post names
-  const [jobApplications, setJobApplications] = useState<JobApplication[]>([]);
-  const [pendingCircularForPermission, setPendingCircularForPermission] = useState<string | null>(null);
+  // Helper function to clean phone for checking
+  function cleanPhone(p?: string) {
+    return p ? p.replace(/[^0-9]/g, '') : '';
+  }
+
+  // Restore whole database from backup JSON file
+  const handleRestoreDatabase = (jsonStr: string): boolean => {
+    const res = restoreDatabaseFromBackup(jsonStr);
+    if (res.success) {
+      if (res.applicants && res.applicants.length > 0) setApplicants(res.applicants);
+      if (res.students && res.students.length > 0) setStudents(res.students);
+      if (res.jobApplications && res.jobApplications.length > 0) setJobApplications(res.jobApplications);
+      if (res.notices && res.notices.length > 0) setNotices(res.notices);
+      return true;
+    }
+    return false;
+  };
 
   // Handlers for Job Applications
+  // CRITICAL REQUIREMENT: Application MUST initially show 'Processing' (প্রক্রিয়াধীন) and NEVER 'Ready'/'Completed' until Admin marks it
   const handleApplyJob = (postName: string, circularTitle: string) => {
     const applicant = applicants.find((a) => a.id === currentApplicantId) || applicants[0];
     const newRoll = `ACTC-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -303,7 +465,8 @@ export default function App() {
       appliedDate: today,
       feeStatus: 'Paid',
       feeAmount: 220,
-      admitStatus: 'Ready',
+      admitStatus: 'Processing', // <-- CRITICAL: Strictly 'Processing' (প্রক্রিয়াধীন) upon application!
+      status: 'Processing',
       rollNo: newRoll,
       refNo: newRef,
       bioDataSnapshot: {
@@ -312,6 +475,8 @@ export default function App() {
         rollNo: newRoll,
         refNo: newRef,
         appliedDate: today,
+        admitStatus: 'Processing',
+        status: 'Processing',
       },
     };
 
@@ -324,7 +489,8 @@ export default function App() {
       refNo: newRef,
       feeStatus: 'Paid',
       feeAmount: 220,
-      admitStatus: 'Ready',
+      admitStatus: 'Processing', // <-- STRICTLY 'Processing'
+      status: 'Processing',
       appliedDate: today,
       applications: [newApp, ...(applicant.applications || [])],
     };
@@ -335,6 +501,25 @@ export default function App() {
   const handleUpdateJobApplication = (updatedApp: JobApplication) => {
     setJobApplications((prev) =>
       prev.map((a) => (a.id === updatedApp.id ? updatedApp : a))
+    );
+
+    // Synchronize applicant record so that when Admin toggles Processing <-> Completed,
+    // the applicant's profile and applications reflect the new status immediately!
+    setApplicants((prevApplicants) =>
+      prevApplicants.map((applicant) => {
+        if (applicant.id === updatedApp.applicantId || (applicant.phone && applicant.phone === updatedApp.phone)) {
+          const updatedAppsList = (applicant.applications || []).map((app) =>
+            app.id === updatedApp.id ? updatedApp : app
+          );
+          return {
+            ...applicant,
+            admitStatus: updatedApp.admitStatus,
+            status: updatedApp.status || (updatedApp.admitStatus === 'Ready' ? 'Completed' : 'Processing'),
+            applications: updatedAppsList,
+          };
+        }
+        return applicant;
+      })
     );
   };
 
@@ -497,6 +682,8 @@ export default function App() {
         jobApplications={jobApplications}
         onUpdateJobApplication={handleUpdateJobApplication}
         onDeleteJobApplication={handleDeleteJobApplication}
+        onExportDatabase={() => downloadDatabaseBackupFile(applicants, students, jobApplications, notices)}
+        onRestoreDatabase={handleRestoreDatabase}
       />
     );
   }

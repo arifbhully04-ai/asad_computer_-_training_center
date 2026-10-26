@@ -20,8 +20,13 @@ import {
   Printer,
   X,
   Eye,
+  EyeOff,
   Key,
   Upload,
+  Download,
+  Copy,
+  Database,
+  Shield,
   Paperclip,
   Check,
   AlertCircle,
@@ -31,6 +36,8 @@ import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 import { StudentProfileModal } from './StudentProfileModal.tsx';
 import { ApplicantProfileModal } from './ApplicantProfileModal.tsx';
 import { ApplicantBioDataModal } from './ApplicantBioDataModal.tsx';
+import { ApplicationStatusBadge, isApplicationCompleted } from './ApplicationStatusBadge.tsx';
+import { downloadDatabaseBackupFile } from '../utils/storageManager.ts';
 
 export interface AdminDashboardProps {
   onLogout: () => void;
@@ -48,6 +55,8 @@ export interface AdminDashboardProps {
   jobApplications?: JobApplication[];
   onUpdateJobApplication?: (app: JobApplication) => void;
   onDeleteJobApplication?: (id: number) => void;
+  onExportDatabase?: () => void;
+  onRestoreDatabase?: (jsonStr: string) => boolean;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -66,9 +75,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   jobApplications: propJobApplications,
   onUpdateJobApplication,
   onDeleteJobApplication,
+  onExportDatabase,
+  onRestoreDatabase,
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'notices' | 'students' | 'applicants'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notices' | 'students' | 'applicants' | 'credentials'>('overview');
   const [applicantSubTab, setApplicantSubTab] = useState<'applications' | 'profiles'>('applications');
+  const [jobAppStatusFilter, setJobAppStatusFilter] = useState<'all' | 'processing' | 'completed'>('all');
+  const [credentialFilter, setCredentialFilter] = useState<'all' | 'applicants' | 'students'>('all');
+  const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [restoreMessage, setRestoreMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [adminStatusToast, setAdminStatusToast] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // 1. Notice Control State (Fallbacks if props not passed)
@@ -375,12 +392,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateJobApplication?.(updated);
   };
 
+  const adminProcessingCount = jobApplications.filter((a) => !isApplicationCompleted(a.admitStatus)).length;
+  const adminCompletedCount = jobApplications.filter((a) => isApplicationCompleted(a.admitStatus)).length;
+
   const handleToggleJobAppAdmitStatus = (app: JobApplication) => {
+    const isNowCompleted = !isApplicationCompleted(app.admitStatus);
+    const newStatus: 'Completed' | 'Processing' = isNowCompleted ? 'Completed' : 'Processing';
     const updated: JobApplication = {
       ...app,
-      admitStatus: app.admitStatus === 'Ready' ? 'Processing' : 'Ready',
+      admitStatus: newStatus,
+      status: newStatus,
+      bioDataSnapshot: app.bioDataSnapshot
+        ? {
+            ...app.bioDataSnapshot,
+            admitStatus: newStatus,
+            status: newStatus,
+          }
+        : undefined,
     };
     onUpdateJobApplication?.(updated);
+    setAdminStatusToast(
+      `স্ট্যাটাস পরিবর্তিত হয়েছে: ${newStatus === 'Completed' ? 'সম্পন্ন (Completed) ✓' : 'প্রক্রিয়াধীন (Processing) ⏳'} (প্রার্থী: ${app.applicantName}, পদ: ${app.postName})`
+    );
+    setTimeout(() => {
+      setAdminStatusToast(null);
+    }, 4500);
   };
 
   const handleDeleteJobAppClick = (id: number) => {
@@ -420,7 +456,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setBioDataModalTab('copy');
   };
 
-  const filteredJobApplications = jobApplications.filter(
+  const statusFilteredJobApps = jobApplications.filter((app) => {
+    if (jobAppStatusFilter === 'processing') return !isApplicationCompleted(app.admitStatus);
+    if (jobAppStatusFilter === 'completed') return isApplicationCompleted(app.admitStatus);
+    return true;
+  });
+
+  const filteredJobApplications = statusFilteredJobApps.filter(
     (app) =>
       app.applicantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.postName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -456,6 +498,116 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       n.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (n.pdfName && n.pdfName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  // Database Backup and Restore Handlers
+  const handleTriggerBackupDownload = () => {
+    if (onExportDatabase) {
+      onExportDatabase();
+    } else {
+      downloadDatabaseBackupFile(applicants, students, jobApplications, notices);
+    }
+  };
+
+  const handleFileUploadRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) {
+          setRestoreMessage({ type: 'error', text: 'ফাইলের কোনো তথ্য পাওয়া যায়নি।' });
+          return;
+        }
+        if (onRestoreDatabase) {
+          const ok = onRestoreDatabase(text);
+          if (ok) {
+            setRestoreMessage({
+              type: 'success',
+              text: 'ডাটাবেজ সফলভাবে রিস্টোর হয়েছে! সকল ইউজার আইডি, পাসওয়ার্ড ও প্রোফাইল ফিরিয়ে আনা হয়েছে।',
+            });
+            setTimeout(() => setRestoreMessage(null), 5000);
+          } else {
+            setRestoreMessage({
+              type: 'error',
+              text: 'ডাটাবেজ রিস্টোর ব্যর্থ হয়েছে। সঠিক ACTC ব্যাকআপ JSON ফাইল নির্বাচন করুন।',
+            });
+            setTimeout(() => setRestoreMessage(null), 5000);
+          }
+        }
+      } catch (err: any) {
+        setRestoreMessage({
+          type: 'error',
+          text: `ফাইল পড়তে সমস্যা হয়েছে: ${err?.message || ''}`,
+        });
+        setTimeout(() => setRestoreMessage(null), 5000);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const togglePasswordVisibility = (key: string) => {
+    setShowPasswords((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleCopyText = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  // Unified list of credentials combining Applicants and Students
+  const allCredentials = [
+    ...applicants.map((a) => ({
+      key: `applicant-${a.id}`,
+      id: a.id,
+      name: a.applicantName,
+      nameBangla: a.nameBangla,
+      role: 'applicant' as const,
+      roleLabel: 'চাকুরী আবেদনকারী',
+      identifier: a.rollNo || a.refNo || `APP-${a.id}`,
+      phone: a.phone,
+      email: a.email,
+      password: a.password || 'applicantpass',
+      title: a.jobTitle || 'সহকারী শিক্ষক',
+      date: a.appliedDate,
+      isCompleted: a.isAccountCompleted,
+      rawApplicant: a,
+    })),
+    ...students.map((s) => ({
+      key: `student-${s.id}`,
+      id: s.id,
+      name: s.name,
+      nameBangla: '',
+      role: 'student' as const,
+      roleLabel: 'কোর্সের শিক্ষার্থী',
+      identifier: s.rollNo,
+      phone: s.phone,
+      email: s.email,
+      password: s.password || 'password123',
+      title: `${s.course} (${s.batch})`,
+      date: 'ভর্তি সম্পন্ন',
+      isCompleted: true,
+      rawStudent: s,
+    })),
+  ];
+
+  const filteredCredentials = allCredentials.filter((cred) => {
+    if (credentialFilter === 'applicants' && cred.role !== 'applicant') return false;
+    if (credentialFilter === 'students' && cred.role !== 'student') return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      cred.name.toLowerCase().includes(q) ||
+      (cred.nameBangla && cred.nameBangla.includes(q)) ||
+      cred.identifier.toLowerCase().includes(q) ||
+      cred.phone.includes(q) ||
+      cred.email.toLowerCase().includes(q) ||
+      cred.password.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-[#dce4f2] p-2 sm:p-4 md:p-6 lg:p-8 flex items-center justify-center font-sans antialiased">
@@ -527,6 +679,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Briefcase className="w-4 h-4 text-emerald-400" />
                 <span>Applicant Control ({applicants.length})</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('credentials')}
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium transition-colors cursor-pointer ${
+                  activeTab === 'credentials'
+                    ? 'bg-amber-500/20 text-amber-300 font-bold border-l-2 border-amber-500'
+                    : 'text-stone-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Key className="w-4 h-4 text-amber-400" />
+                <div className="flex-1 text-left">
+                  <span className="block font-medium">আইডি ও পাসওয়ার্ড</span>
+                  <span className="block text-[10px] text-amber-400/90 font-mono">ভল্ট ({applicants.length + students.length})</span>
+                </div>
+              </button>
             </nav>
           </div>
 
@@ -584,12 +751,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div
-                  onClick={() => setActiveTab('applicants')}
-                  className="bg-[#00b4d8] text-white p-4 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => {
+                    setActiveTab('applicants');
+                    setApplicantSubTab('applications');
+                  }}
+                  className="bg-gradient-to-br from-teal-700 to-emerald-800 text-white p-4 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                 >
-                  <div className="text-xs font-semibold">Job Applicants</div>
-                  <div className="text-xl font-bold mt-1">{applicants.length} Applications</div>
-                  <div className="text-[10px] text-white/80 mt-1">Govt & Private Circulars</div>
+                  <div className="flex items-center justify-between text-xs font-semibold text-teal-100">
+                    <span>চাকুরীর আবেদনসমূহ</span>
+                    <Briefcase className="w-3.5 h-3.5 text-teal-200" />
+                  </div>
+                  <div className="text-xl font-bold mt-1">
+                    {jobApplications.length} টি আবেদন
+                  </div>
+                  <div className="text-[10px] text-teal-100 mt-1 flex items-center space-x-1.5">
+                    <span className="bg-amber-400 text-amber-950 px-1.5 py-0.2 rounded font-bold">
+                      {adminProcessingCount} প্রক্রিয়াধীন
+                    </span>
+                    <span className="bg-emerald-400 text-emerald-950 px-1.5 py-0.2 rounded font-bold">
+                      {adminCompletedCount} সম্পন্ন
+                    </span>
+                  </div>
                 </div>
 
                 <div
@@ -875,6 +1057,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {/* SUB-VIEW 1: SUBMITTED JOB APPLICATIONS WITH POST NAMES */}
                 {applicantSubTab === 'applications' && (
                   <div>
+                    {/* Admin Status Feedback Toast */}
+                    {adminStatusToast && (
+                      <div className="mb-4 p-3 bg-emerald-700 text-white rounded-xl shadow-md flex items-center justify-between text-xs animate-in fade-in duration-200">
+                        <div className="flex items-center space-x-2 font-medium">
+                          <CheckCircle className="w-4 h-4 text-emerald-200" />
+                          <span>{adminStatusToast}</span>
+                        </div>
+                        <button
+                          onClick={() => setAdminStatusToast(null)}
+                          className="text-white/80 hover:text-white p-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Status Filter Bar for Job Applications */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Filter className="w-3.5 h-3.5 text-stone-500" />
+                        <span className="text-xs font-bold text-stone-700">আবেদন স্ট্যাটাস ফিল্টার:</span>
+
+                        <button
+                          onClick={() => setJobAppStatusFilter('all')}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            jobAppStatusFilter === 'all'
+                              ? 'bg-stone-900 text-white shadow-xs'
+                              : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                          }`}
+                        >
+                          সকল আবেদন ({jobApplications.length})
+                        </button>
+
+                        <button
+                          onClick={() => setJobAppStatusFilter('processing')}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+                            jobAppStatusFilter === 'processing'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100'
+                          }`}
+                        >
+                          <Clock className="w-3 h-3" />
+                          <span>প্রক্রিয়াধীন ({adminProcessingCount})</span>
+                        </button>
+
+                        <button
+                          onClick={() => setJobAppStatusFilter('completed')}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+                            jobAppStatusFilter === 'completed'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-emerald-50 text-emerald-900 border border-emerald-300 hover:bg-emerald-100'
+                          }`}
+                        >
+                          <CheckCircle className="w-3 h-3" />
+                          <span>সম্পন্ন ({adminCompletedCount})</span>
+                        </button>
+                      </div>
+
+                      <div className="text-[11px] text-stone-500 italic">
+                        * 'সম্পন্ন করুন' বোতামে ক্লিক করলে সাথে সাথে প্রার্থীর পোর্টালে সম্পন্ন দেখাবে।
+                      </div>
+                    </div>
+
                     {filteredJobApplications.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left border-collapse">
@@ -886,7 +1131,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <th className="p-3 bg-emerald-50 text-emerald-900">আবেদিত পদ (Applied Post)</th>
                               <th className="p-3">তারিখ</th>
                               <th className="p-3">ফি স্ট্যাটাস</th>
-                              <th className="p-3">আবেদন স্ট্যাটাস</th>
+                              <th className="p-3 bg-amber-50/60 text-amber-950 font-bold">আবেদন স্ট্যাটাস ও একশন</th>
                               <th className="p-3 text-right">অ্যাকশন</th>
                             </tr>
                           </thead>
@@ -925,28 +1170,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     {app.feeStatus} (৳{app.feeAmount})
                                   </button>
                                 </td>
-                                <td className="p-3">
-                                  <button
-                                    onClick={() => handleToggleJobAppAdmitStatus(app)}
-                                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center space-x-1 ${
-                                      app.admitStatus === 'Ready'
-                                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
-                                        : 'bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300'
-                                    }`}
-                                    title="Click to toggle Confirmed/Processing"
-                                  >
-                                    {app.admitStatus === 'Ready' ? (
-                                      <>
-                                        <CheckCircle className="w-3 h-3 text-emerald-600" />
-                                        <span>আবেদন সম্পন্ন (Confirmed)</span>
-                                      </>
+                                <td className="p-3 bg-amber-50/30">
+                                  {/* Clear Color-Coded Status Badge with Quick Action Button */}
+                                  <div className="flex flex-col items-start gap-1.5">
+                                    <ApplicationStatusBadge
+                                      status={app.admitStatus}
+                                      size="xs"
+                                    />
+                                    {isApplicationCompleted(app.admitStatus) ? (
+                                      <button
+                                        onClick={() => handleToggleJobAppAdmitStatus(app)}
+                                        className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-300 transition-colors flex items-center space-x-1 cursor-pointer"
+                                        title="পুনরায় প্রক্রিয়াধীন করতে ক্লিক করুন"
+                                      >
+                                        <Clock className="w-2.5 h-2.5 text-amber-600" />
+                                        <span>প্রক্রিয়াধীন করুন</span>
+                                      </button>
                                     ) : (
-                                      <>
-                                        <Clock className="w-3 h-3 text-amber-600" />
-                                        <span>যাচাই প্রক্রিয়াধীন</span>
-                                      </>
+                                      <button
+                                        onClick={() => handleToggleJobAppAdmitStatus(app)}
+                                        className="text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-0.5 rounded shadow-2xs transition-colors flex items-center space-x-1 cursor-pointer"
+                                        title="আবেদনটি সম্পন্ন ও অনুমোদিত করতে ক্লিক করুন"
+                                      >
+                                        <CheckCircle className="w-2.5 h-2.5 text-white" />
+                                        <span>সম্পন্ন করুন (Approve)</span>
+                                      </button>
                                     )}
-                                  </button>
+                                  </div>
                                 </td>
                                 <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
                                   <button
@@ -973,9 +1223,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ) : (
                       <div className="text-center py-12 bg-stone-50 rounded-xl border border-dashed border-stone-300 space-y-2">
                         <Briefcase className="w-10 h-10 text-stone-400 mx-auto" />
-                        <h5 className="font-bold text-stone-700 text-sm">কোনো চাকুরীর আবেদন এখনও জমা পড়েনি</h5>
+                        <h5 className="font-bold text-stone-700 text-sm">কোনো আবেদন পাওয়া যায়নি</h5>
                         <p className="text-xs text-stone-500 max-w-md mx-auto">
-                          এপ্লিকেন্টরা সার্কুলারে ক্লিক করে পদের নাম দিয়ে আবেদন জমা দিলে সেই পদের নাম ও তাদের পূর্ণাঙ্গ তথ্য সরাসরি এখানে প্রদর্শিত হবে।
+                          বর্তমানে নির্বাচিত ফিল্টারে কোনো আবেদন নেই।
                         </p>
                       </div>
                     )}
@@ -992,7 +1242,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <th className="p-3">Contact</th>
                           <th className="p-3">Profile Status</th>
                           <th className="p-3">Fee Status</th>
-                          <th className="p-3">Admit Card</th>
+                          <th className="p-3">Admit Card / Status</th>
                           <th className="p-3 text-right">Quick Actions</th>
                         </tr>
                       </thead>
@@ -1028,17 +1278,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </button>
                             </td>
                             <td className="p-3">
-                              <button
+                              <ApplicationStatusBadge
+                                status={app.admitStatus}
+                                size="xs"
+                                interactive={true}
                                 onClick={() => handleToggleAdmitStatus(app)}
-                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
-                                  app.admitStatus === 'Ready'
-                                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                    : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                                }`}
-                                title="Click to toggle Ready/Processing"
-                              >
-                                {app.admitStatus}
-                              </button>
+                                adminActionLabel="টগল"
+                              />
                             </td>
                             <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
                               <button
@@ -1083,10 +1329,305 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {/* VIEW D: CREDENTIALS VAULT & PERMANENT DATABASE BACKUP */}
+            {activeTab === 'credentials' && (
+              <div className="space-y-5">
+                {/* Restore / Backup Toast Notification */}
+                {restoreMessage && (
+                  <div
+                    className={`p-4 rounded-xl text-xs font-medium flex items-center justify-between shadow-sm animate-in fade-in duration-200 ${
+                      restoreMessage.type === 'success'
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-rose-700 text-white'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      {restoreMessage.type === 'success' ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-200 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-200 shrink-0" />
+                      )}
+                      <span>{restoreMessage.text}</span>
+                    </div>
+                    <button
+                      onClick={() => setRestoreMessage(null)}
+                      className="p-1 hover:bg-white/20 rounded cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Permanent Storage Assurance & Backup Card */}
+                <div className="bg-gradient-to-r from-stone-900 via-[#1f2740] to-stone-900 text-white p-5 sm:p-6 rounded-2xl shadow-md border border-stone-700">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1.5 max-w-2xl">
+                      <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-semibold">
+                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>১০০% পার্মানেন্ট স্টোরেজ অ্যাক্টিভ · ডেটা কখনোই হারাবে না</span>
+                      </div>
+                      <h3 className="text-base sm:text-lg font-bold text-white tracking-wide">
+                        আইডি ও পাসওয়ার্ড ভল্ট এবং সেন্ট্রাল ডাটাবেজ ব্যাকআপ
+                      </h3>
+                      <p className="text-xs text-stone-300 leading-relaxed">
+                        সবার ইউজার আইডি আর পাসওয়ার্ড ডাটাবেজে স্থায়ীভাবে সেভ থাকবে। ওয়েবসাইট যতবারই রিলোড, রিফ্রেশ বা আপডেট করা হোক না কেন কারো প্রোফাইল বা আইডি পাসওয়ার্ড মুছে যাবে না।
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                      {/* Download JSON Backup Button */}
+                      <button
+                        onClick={handleTriggerBackupDownload}
+                        className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-stone-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center space-x-2 cursor-pointer hover:shadow-amber-500/20"
+                        title="Download complete database JSON containing all applicants, students, credentials, and applications"
+                      >
+                        <Download className="w-4 h-4 text-stone-950" />
+                        <span>ব্যাকআপ ডাউনলোড (JSON)</span>
+                      </button>
+
+                      {/* Restore JSON Backup Button */}
+                      <label className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-xs rounded-xl transition-all flex items-center space-x-2 cursor-pointer">
+                        <Upload className="w-4 h-4 text-amber-300" />
+                        <span>ব্যাকআপ আপলোড / রিস্টোর</span>
+                        <input
+                          type="file"
+                          accept=".json,application/json"
+                          onChange={handleFileUploadRestore}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Summary Metric Counters */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-white/10 text-xs">
+                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                      <span className="text-stone-400 text-[11px] block">আবেদনকারী অ্যাকাউন্ট</span>
+                      <span className="text-base font-bold text-emerald-400">{applicants.length} টি</span>
+                    </div>
+                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                      <span className="text-stone-400 text-[11px] block">শিক্ষার্থী অ্যাকাউন্ট</span>
+                      <span className="text-base font-bold text-blue-400">{students.length} জন</span>
+                    </div>
+                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                      <span className="text-stone-400 text-[11px] block">সর্বমোট ক্রেডেনশিয়াল</span>
+                      <span className="text-base font-bold text-amber-300">{allCredentials.length} টি</span>
+                    </div>
+                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                      <span className="text-stone-400 text-[11px] block">স্টোরেজ স্ট্যাটাস</span>
+                      <span className="text-xs font-bold text-emerald-300 flex items-center space-x-1 mt-0.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>সুরক্ষিত ও সিঙ্কড</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Credentials Table Container */}
+                <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
+                  {/* Filter and Search Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-stone-200">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-stone-700">ফিল্টার:</span>
+                      <button
+                        onClick={() => setCredentialFilter('all')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          credentialFilter === 'all'
+                            ? 'bg-stone-900 text-white shadow-xs'
+                            : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                        }`}
+                      >
+                        সকল ({allCredentials.length})
+                      </button>
+                      <button
+                        onClick={() => setCredentialFilter('applicants')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          credentialFilter === 'applicants'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                        }`}
+                      >
+                        চাকুরী আবেদনকারী ({applicants.length})
+                      </button>
+                      <button
+                        onClick={() => setCredentialFilter('students')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          credentialFilter === 'students'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                        }`}
+                      >
+                        শিক্ষার্থী ({students.length})
+                      </button>
+                    </div>
+
+                    <div className="text-[11px] text-stone-500 font-medium">
+                      পাসওয়ার্ড দেখতে চোখের আইকনে এবং কপি করতে কপি বাটনে ক্লিক করুন।
+                    </div>
+                  </div>
+
+                  {filteredCredentials.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead>
+                          <tr className="bg-stone-100/90 text-stone-700 border-b border-stone-300 uppercase text-[10px] tracking-wider font-bold">
+                            <th className="p-3">ইউজার প্রোফাইল</th>
+                            <th className="p-3">অ্যাকাউন্ট ধরণ</th>
+                            <th className="p-3">লগইন আইডি / মোবাইল</th>
+                            <th className="p-3">ইমেইল</th>
+                            <th className="p-3 bg-amber-50/70 text-amber-950">পাসওয়ার্ড (Password)</th>
+                            <th className="p-3">ডাটা স্টোরেজ স্থায়িত্ব</th>
+                            <th className="p-3 text-right">ম্যানেজমেন্ট</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-200">
+                          {filteredCredentials.map((cred) => {
+                            const isRevealed = !!showPasswords[cred.key];
+                            const isCopied = copiedId === cred.key;
+
+                            return (
+                              <tr key={cred.key} className="hover:bg-stone-50/80 transition-colors">
+                                <td className="p-3">
+                                  <div className="font-bold text-stone-900">{cred.name}</div>
+                                  {cred.nameBangla && (
+                                    <div className="text-[11px] text-stone-600">{cred.nameBangla}</div>
+                                  )}
+                                  <div className="text-[10px] text-stone-400 font-mono mt-0.5">
+                                    ID/Roll: {cred.identifier}
+                                  </div>
+                                </td>
+
+                                <td className="p-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-block ${
+                                      cred.role === 'applicant'
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : 'bg-blue-100 text-blue-800 border border-blue-300'
+                                    }`}
+                                  >
+                                    {cred.roleLabel}
+                                  </span>
+                                  <div className="text-[10px] text-stone-500 mt-1 max-w-[140px] truncate" title={cred.title}>
+                                    {cred.title}
+                                  </div>
+                                </td>
+
+                                <td className="p-3 font-mono">
+                                  <div className="flex items-center space-x-1.5">
+                                    <span className="font-bold text-stone-900">{cred.phone}</span>
+                                    <button
+                                      onClick={() => handleCopyText(cred.phone, `${cred.key}-phone`)}
+                                      className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+                                      title="Copy phone"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                  {copiedId === `${cred.key}-phone` && (
+                                    <span className="text-[10px] text-emerald-600 font-semibold block">কপি হয়েছে!</span>
+                                  )}
+                                </td>
+
+                                <td className="p-3 font-mono text-stone-600">
+                                  <div className="truncate max-w-[150px]" title={cred.email}>
+                                    {cred.email}
+                                  </div>
+                                </td>
+
+                                <td className="p-3 bg-amber-50/40">
+                                  <div className="flex items-center space-x-2">
+                                    <span
+                                      className={`font-mono text-xs font-bold px-2 py-1 rounded bg-white border border-stone-300 select-all ${
+                                        isRevealed ? 'text-stone-900 bg-amber-100/50' : 'text-stone-400 tracking-widest'
+                                      }`}
+                                    >
+                                      {isRevealed ? cred.password : '••••••••'}
+                                    </span>
+
+                                    {/* Reveal Toggle */}
+                                    <button
+                                      onClick={() => togglePasswordVisibility(cred.key)}
+                                      className="p-1 text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 rounded border border-stone-200 cursor-pointer transition-colors"
+                                      title={isRevealed ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                                    >
+                                      {isRevealed ? <EyeOff className="w-3.5 h-3.5 text-stone-600" /> : <Eye className="w-3.5 h-3.5 text-stone-600" />}
+                                    </button>
+
+                                    {/* Copy Password Button */}
+                                    <button
+                                      onClick={() => handleCopyText(cred.password, cred.key)}
+                                      className="p-1 text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 rounded border border-stone-200 cursor-pointer transition-colors"
+                                      title="পাসওয়ার্ড কপি করুন"
+                                    >
+                                      <Copy className="w-3.5 h-3.5 text-stone-600" />
+                                    </button>
+                                  </div>
+
+                                  {isCopied && (
+                                    <span className="text-[10px] text-emerald-600 font-bold mt-0.5 block animate-in fade-in">
+                                      ✓ পাসওয়ার্ড কপি হয়েছে!
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="p-3">
+                                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span>স্থায়ীভাবে সংরক্ষিত</span>
+                                  </span>
+                                  <span className="block text-[9px] text-stone-400 mt-0.5">
+                                    কখনোই ডিলিট হবে না
+                                  </span>
+                                </td>
+
+                                <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                                  {cred.role === 'applicant' ? (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setSelectedApplicantForBioData(cred.rawApplicant);
+                                          setBioDataModalTab('copy');
+                                        }}
+                                        className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[10px] transition-colors cursor-pointer border border-blue-200"
+                                      >
+                                        প্রোফাইল
+                                      </button>
+                                      <button
+                                        onClick={() => setSelectedApplicantForEdit(cred.rawApplicant)}
+                                        className="px-2 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded font-semibold text-[10px] transition-colors cursor-pointer border border-stone-200"
+                                      >
+                                        পাসওয়ার্ড পরিবর্তন
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      onClick={() => setSelectedStudentForEdit(cred.rawStudent)}
+                                      className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[10px] transition-colors cursor-pointer border border-blue-200"
+                                    >
+                                      এডিট / পাসওয়ার্ড
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 bg-stone-50 rounded-xl border border-dashed border-stone-300">
+                      <Key className="w-8 h-8 text-stone-400 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-stone-700">কোনো ক্রেডেনশিয়াল পাওয়া যায়নি</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* DEFAULT VIEW: OVERVIEW SUMMARY */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {/* Recent Notices Box */}
                   <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
                     <div className="flex items-center justify-between mb-3 pb-2 border-b border-stone-100">
@@ -1152,6 +1693,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       ))}
                     </div>
                   </div>
+
+                  {/* Credentials & Backup Box */}
+                  <div className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 p-5 rounded-2xl border border-amber-200 shadow-xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-200/60">
+                        <h5 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center space-x-1.5">
+                          <Shield className="w-3.5 h-3.5 text-amber-600" />
+                          <span>ডাটাবেজ ও পাসওয়ার্ড সুরক্ষা</span>
+                        </h5>
+                        <button
+                          onClick={() => setActiveTab('credentials')}
+                          className="text-xs text-amber-700 font-bold hover:underline cursor-pointer"
+                        >
+                          ভল্ট খুলুন
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-stone-600 leading-relaxed mb-3">
+                        ওয়েবসাইট আপডেট করলেও সকল ইউজারের আইডি ও পাসওয়ার্ড নিরাপদে সংরক্ষিত থাকবে।
+                      </p>
+                      <div className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-amber-200 mb-3">
+                        <span className="text-stone-600">সংরক্ষিত প্রোফাইল:</span>
+                        <span className="font-bold text-amber-900">{allCredentials.length} টি অ্যাকাউন্ট</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-2">
+                      <button
+                        onClick={handleTriggerBackupDownload}
+                        className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 shadow-2xs cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>১-ক্লিকে ব্যাকআপ ডাউনলোড</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1192,7 +1768,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
                   <span>Verify Applicant Fees</span>
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('credentials')}
+                  className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-colors flex items-center space-x-2 cursor-pointer"
+                >
+                  <Key className="w-4 h-4 text-amber-600" />
+                  <span>আইডি ও পাসওয়ার্ড ভল্ট</span>
+                </button>
               </div>
+            </div>
+
+            {/* Permanent Storage Protection Widget */}
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 rounded-2xl p-4 shadow-xs border border-amber-200">
+              <div className="flex items-center space-x-2 text-xs font-bold text-amber-950 uppercase mb-1.5">
+                <Shield className="w-4 h-4 text-amber-600" />
+                <span>স্থায়ী ডাটাবেজ ব্যাকআপ</span>
+              </div>
+              <p className="text-[11px] text-stone-600 mb-2.5 leading-relaxed">
+                ওয়েবসাইট আপডেট হলেও সবার আইডি ও পাসওয়ার্ড সুরক্ষিত থাকে।
+              </p>
+              <button
+                onClick={handleTriggerBackupDownload}
+                className="w-full py-2 px-3 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>ব্যাকআপ ডাউনলোড (JSON)</span>
+              </button>
             </div>
 
             {/* Institute Center Card */}

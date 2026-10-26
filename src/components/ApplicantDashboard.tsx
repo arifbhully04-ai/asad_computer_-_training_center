@@ -19,12 +19,14 @@ import {
   ArrowRight,
   Send,
   Clock,
+  Filter,
 } from 'lucide-react';
 import { ApplicantAccount, NoticeItem, JobApplication } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 import { ApplicantBioDataModal } from './ApplicantBioDataModal.tsx';
 import { ApplicationPermissionModal } from './ApplicationPermissionModal.tsx';
 import { JobPortalModal } from './JobPortalModal.tsx';
+import { ApplicationStatusBadge, isApplicationCompleted } from './ApplicationStatusBadge.tsx';
 
 interface ApplicantDashboardProps {
   onLogout: () => void;
@@ -52,6 +54,7 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
   onClearInitialPendingCircular,
 }) => {
   const [activeTab, setActiveTab] = useState<'applications' | 'notices'>('applications');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNoticeForPdf, setSelectedNoticeForPdf] = useState<NoticeItem | null>(null);
   const [showBioDataModal, setShowBioDataModal] = useState(false);
@@ -106,7 +109,7 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
             postName: applicant.jobTitle,
             feeStatus: applicant.feeStatus || 'Paid',
             feeAmount: applicant.feeAmount || 220,
-            admitStatus: applicant.admitStatus || 'Ready',
+            admitStatus: applicant.admitStatus || 'Processing',
             appliedDate: applicant.appliedDate || 'Online',
             rollNo: applicant.rollNo || 'Pending',
             refNo: applicant.refNo || 'ACTC-APP',
@@ -114,7 +117,16 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
         ]
       : [];
 
-  const filteredApps = displayApplications.filter((app) =>
+  const processingCount = displayApplications.filter((a) => !isApplicationCompleted(a.admitStatus)).length;
+  const completedCount = displayApplications.filter((a) => isApplicationCompleted(a.admitStatus)).length;
+
+  const statusFiltered = displayApplications.filter((app) => {
+    if (statusFilter === 'processing') return !isApplicationCompleted(app.admitStatus);
+    if (statusFilter === 'completed') return isApplicationCompleted(app.admitStatus);
+    return true;
+  });
+
+  const filteredApps = statusFiltered.filter((app) =>
     (app.circularTitle + ' ' + app.postName + ' ' + (app.rollNo || '')).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -131,12 +143,13 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
       onApplyJob(postName, circularTitle);
     }
     setAppliedSuccessToast(
-      `'${circularTitle}' সার্কুলারে '${postName}' পদে আপনার আবেদন সফলভাবে সাবমিট হয়েছে! আসাদ কম্পিউটার সেন্টারে আপনার তথ্য জমা হয়েছে।`
+      `'${circularTitle}' সার্কুলারে '${postName}' পদে আপনার আবেদন সফলভাবে সাবমিট হয়েছে! আবেদনটি বর্তমানে 'প্রক্রিয়াধীন' রয়েছে। আসাদ কম্পিউটার সেন্টারের এডমিন যাচাই করে সম্পন্ন করলে 'সম্পন্ন' ব্যাজ দেখাবে।`
     );
     setActiveTab('applications');
+    setStatusFilter('all');
     setTimeout(() => {
       setAppliedSuccessToast(null);
-    }, 5000);
+    }, 6000);
   };
 
   const handleOpenCopyForApplication = (app: JobApplication) => {
@@ -374,16 +387,52 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                 </div>
               </div>
 
-              {/* 4 Category Cards */}
+              {/* 4 Category Cards with Processing vs Completed Badges */}
               <div className="mb-6">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                   <div
-                    onClick={() => setActiveTab('applications')}
-                    className="bg-[#ff5b57] text-white p-4 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => {
+                      setActiveTab('applications');
+                      setStatusFilter('all');
+                    }}
+                    className="bg-[#1e293b] text-white p-4 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow border border-stone-800"
                   >
-                    <div className="text-xs font-semibold">Total Applied</div>
-                    <div className="text-xl font-bold mt-1">{displayApplications.length} Application{displayApplications.length !== 1 ? 's' : ''}</div>
-                    <div className="text-[10px] text-white/80 mt-1">Submitted & Verified</div>
+                    <div className="text-xs font-semibold text-stone-300">মোট আবেদন (Total)</div>
+                    <div className="text-xl font-bold mt-1">{displayApplications.length} টি</div>
+                    <div className="text-[10px] text-stone-400 mt-1">ক্লিক করে সব দেখুন</div>
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      setActiveTab('applications');
+                      setStatusFilter('processing');
+                    }}
+                    className="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-4 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between text-xs font-semibold text-amber-100">
+                      <span>প্রক্রিয়াধীন (Processing)</span>
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                    </div>
+                    <div className="text-xl font-bold mt-1">{processingCount} টি আবেদন</div>
+                    <div className="text-[10px] text-amber-100/90 mt-1 flex items-center space-x-1">
+                      <Clock className="w-3 h-3 inline" />
+                      <span>এডমিন যাচাই চলছে</span>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      setActiveTab('applications');
+                      setStatusFilter('completed');
+                    }}
+                    className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-4 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center justify-between text-xs font-semibold text-emerald-100">
+                      <span>সম্পন্ন (Completed)</span>
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-200" />
+                    </div>
+                    <div className="text-xl font-bold mt-1">{completedCount} টি আবেদন</div>
+                    <div className="text-[10px] text-emerald-100/90 mt-1">অনুমোদিত ও সম্পন্ন</div>
                   </div>
 
                   <div
@@ -392,19 +441,7 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                   >
                     <div className="text-xs font-semibold">Admin Notices</div>
                     <div className="text-xl font-bold mt-1">{notices.length} Circulars</div>
-                    <div className="text-[10px] text-white/80 mt-1">Click to Apply Now</div>
-                  </div>
-
-                  <div className="bg-[#00b4d8] text-white p-4 rounded-2xl shadow-sm">
-                    <div className="text-xs font-semibold">Center Processing</div>
-                    <div className="text-xl font-bold mt-1">Active</div>
-                    <div className="text-[10px] text-white/80 mt-1">Bhully Bazar Desk</div>
-                  </div>
-
-                  <div className="bg-[#ffb703] text-stone-950 p-4 rounded-2xl shadow-sm">
-                    <div className="text-xs font-bold">Helpline</div>
-                    <div className="text-xl font-bold mt-1">01773-733654</div>
-                    <div className="text-[10px] text-stone-800 mt-1">Bottola, Bhully Bazar</div>
+                    <div className="text-[10px] text-white/80 mt-1">নতুন আবেদন করুন</div>
                   </div>
                 </div>
               </div>
@@ -420,7 +457,7 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                   }`}
                 >
                   <Briefcase className="w-3.5 h-3.5" />
-                  <span>আমার আবেদনসমূহ (My Applications - {displayApplications.length})</span>
+                  <span>আমার আবেদনসমূহ ({displayApplications.length})</span>
                 </button>
 
                 <button
@@ -447,24 +484,55 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
               {/* TAB 1: MY APPLICATIONS LIST */}
               {activeTab === 'applications' && (
                 <div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h4 className="text-xs font-bold text-stone-800 tracking-wider uppercase">
-                      My Submitted Applications & Selected Posts
-                    </h4>
+                  {/* Status Filter Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white p-3 rounded-xl border border-stone-200 shadow-2xs">
+                    <div className="flex items-center space-x-2">
+                      <Filter className="w-3.5 h-3.5 text-stone-400" />
+                      <span className="text-xs font-bold text-stone-700">স্ট্যাটাস ফিল্টার:</span>
+                      
+                      <button
+                        onClick={() => setStatusFilter('all')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          statusFilter === 'all'
+                            ? 'bg-stone-900 text-white shadow-xs'
+                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                        }`}
+                      >
+                        সকল ({displayApplications.length})
+                      </button>
+
+                      <button
+                        onClick={() => setStatusFilter('processing')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+                          statusFilter === 'processing'
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100'
+                        }`}
+                      >
+                        <Clock className="w-3 h-3" />
+                        <span>প্রক্রিয়াধীন ({processingCount})</span>
+                      </button>
+
+                      <button
+                        onClick={() => setStatusFilter('completed')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+                          statusFilter === 'completed'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                        }`}
+                      >
+                        <CheckCircle className="w-3 h-3" />
+                        <span>সম্পন্ন ({completedCount})</span>
+                      </button>
+                    </div>
+
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => setJobPortalModalOpen(true)}
                         className="text-xs text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1.5 rounded-lg font-bold cursor-pointer flex items-center space-x-1"
                       >
                         <Briefcase className="w-3.5 h-3.5 text-teal-600" />
-                        <span>Job Portal / Circulars</span>
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('notices')}
-                        className="text-xs text-emerald-700 font-semibold hover:underline cursor-pointer flex items-center space-x-1"
-                      >
-                        <span>+ এডমিন নোটিশ</span>
-                        <ArrowRight className="w-3 h-3" />
+                        <span>নতুন সার্কুলার</span>
                       </button>
                     </div>
                   </div>
@@ -499,23 +567,17 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
-                            {/* Application Confirmation Status Badge: Shows whether application is confirmed */}
-                            {app.admitStatus === 'Ready' ? (
-                              <span className="px-3 py-1.5 rounded-full text-xs font-bold border bg-emerald-50 text-emerald-800 border-emerald-300 flex items-center space-x-1.5 shadow-2xs">
-                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span>আবেদন সম্পন্ন (কনফার্ম)</span>
-                              </span>
-                            ) : (
-                              <span className="px-3 py-1.5 rounded-full text-xs font-bold border bg-amber-50 text-amber-800 border-amber-300 flex items-center space-x-1.5 shadow-2xs">
-                                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                <span>আবেদন যাচাই প্রক্রিয়াধীন</span>
-                              </span>
-                            )}
+                          <div className="flex flex-wrap items-center gap-3 self-end sm:self-auto">
+                            {/* Color-Coded Processing vs Completed Badge */}
+                            <ApplicationStatusBadge
+                              status={app.admitStatus}
+                              size="sm"
+                              showSubtext={true}
+                            />
 
                             <button
                               onClick={() => handleOpenCopyForApplication(app)}
-                              className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg transition-colors flex items-center space-x-1 cursor-pointer border border-stone-300"
+                              className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg transition-colors flex items-center space-x-1 cursor-pointer border border-stone-300 self-start"
                             >
                               <Printer className="w-3.5 h-3.5 text-blue-600" />
                               <span>Applicant Copy (কপি দেখুন)</span>

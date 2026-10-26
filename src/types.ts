@@ -105,7 +105,8 @@ export interface ApplicantAccount {
   refNo?: string;
   feeStatus: 'Paid' | 'Pending';
   feeAmount: number;
-  admitStatus: 'Ready' | 'Processing';
+  admitStatus: 'Ready' | 'Processing' | 'Completed';
+  status?: 'Completed' | 'Processing';
   appliedDate: string;
   rollNo?: string;
   isAccountCompleted?: boolean;
@@ -124,7 +125,8 @@ export interface JobApplication {
   appliedDate: string;
   feeStatus: 'Paid' | 'Pending';
   feeAmount: number;
-  admitStatus: 'Ready' | 'Processing';
+  admitStatus: 'Ready' | 'Processing' | 'Completed';
+  status?: 'Completed' | 'Processing';
   rollNo: string;
   refNo: string;
   bioDataSnapshot?: ApplicantAccount;

@@ -7,6 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar.tsx';
 import { HeroSlider } from './components/HeroSlider.tsx';
 import { WelcomeSection } from './components/WelcomeSection.tsx';
+import { FAQSection } from './components/FAQSection.tsx';
+export { FAQSection };
 import { Footer } from './components/Footer.tsx';
 import { InfoModal } from './components/InfoModal.tsx';
 import { CourseModal } from './components/CourseModal.tsx';
@@ -39,7 +41,7 @@ const defaultNoticesList: NoticeItem[] = [
     title: 'New Computer Office Application Batch starts from 1st of next month',
     category: 'Student',
     date: '24 Oct 2026',
-    description: 'Morning and Evening batches admission is ongoing. Limited seats for 3-Month & 6-Month courses. Technical Education Board certified curriculum.',
+    description: 'Morning and Evening batches admission is ongoing. Limited seats for 3-Month & 6-Month courses. Under Bangladesh Post Office (বাংলাদেশ ডাক বিভাগ) certified curriculum.',
     urgent: true,
     pdfName: 'ACTC_Office_Application_Batch_Notice_2026.pdf',
   },
@@ -63,12 +65,12 @@ const defaultNoticesList: NoticeItem[] = [
   },
   {
     id: 4,
-    title: 'Govt Technical Education Board 6-Month Certificate Verification Open',
+    title: 'Bangladesh Post Office 6-Month Computer Certificate Verification Open',
     category: 'General',
     date: '18 Oct 2026',
     description: 'Roll verification and registration card distribution for July-December semester is open. Contact institute office at Bottola, Bhully Bazar.',
     urgent: false,
-    pdfName: 'BTEB_Certificate_Verification_Process.pdf',
+    pdfName: 'Post_Office_Certificate_Verification_Process.pdf',
   },
 ];
 
@@ -177,7 +179,7 @@ const defaultApplicantsList: ApplicantAccount[] = [
     rollNo: 'ACTC-892145',
     typingSpeedBangla: '32 WPM',
     typingSpeedEnglish: '42 WPM',
-    computerExperience: 'Computer Office Application 6 Months (BTEB Certified)',
+    computerExperience: 'Computer Office Application 6 Months (Under Bangladesh Post Office)',
     isAccountCompleted: true,
     presentAddress: {
       careOf: 'Md. Rafiqul Islam',
@@ -371,10 +373,25 @@ export default function App() {
 
   const handleAddStudent = (newStudent: StudentAccount) => {
     setStudents((prev) => {
-      const next = [newStudent, ...prev];
+      const exists = prev.some(
+        (s) =>
+          s.id === newStudent.id ||
+          (s.phone && cleanPhone(s.phone) === cleanPhone(newStudent.phone)) ||
+          (s.rollNo && s.rollNo.toLowerCase() === newStudent.rollNo.toLowerCase())
+      );
+      const next = exists
+        ? prev.map((s) =>
+            s.id === newStudent.id ||
+            (s.phone && cleanPhone(s.phone) === cleanPhone(newStudent.phone)) ||
+            (s.rollNo && s.rollNo.toLowerCase() === newStudent.rollNo.toLowerCase())
+              ? { ...s, ...newStudent }
+              : s
+          )
+        : [newStudent, ...prev];
       savePersistentStudents(next);
       return next;
     });
+    setCurrentStudentId(newStudent.id);
   };
 
   const handleDeleteStudent = (id: number) => {
@@ -709,6 +726,19 @@ export default function App() {
             handleSelectNavItem(
               'About Center',
               'Asad Computer & Training Center was established at Bottola, Bhully Bazar, Bhully, Thakurgaon to bridge digital literacy gaps and provide swift, dependable e-services for all citizens and students.'
+            )
+          }
+        />
+
+        {/* Common Questions & Answers / FAQ Section */}
+        <FAQSection
+          onOpenCourseModal={() => setCourseModalOpen(true)}
+          onOpenAdmission={() => setAdmissionModalOpen(true)}
+          onOpenJobPortal={() => setJobPortalOpen(true)}
+          onContactClick={() =>
+            handleSelectNavItem(
+              'Contact & Location',
+              'Asad Computer & Training Center, Bottola, Bhully Bazar, Bhully, Thakurgaon. Mobile: 01773-733654, WhatsApp: 01407-215416, Email: bhulli.postoffice@gmail.com'
             )
           }
         />

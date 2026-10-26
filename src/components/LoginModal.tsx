@@ -26,6 +26,7 @@ export interface LoginModalProps {
   initialRole?: LoginRole;
   initialMode?: 'login' | 'register';
   initialJobTitle?: string;
+  initialEmailOrId?: string;
   students?: StudentAccount[];
   applicants?: ApplicantAccount[];
   onRegisterApplicant?: (newApplicant: ApplicantAccount) => void;
@@ -38,6 +39,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   initialRole = 'applicant',
   initialMode = 'login',
   initialJobTitle,
+  initialEmailOrId,
   students = [],
   applicants = [],
   onRegisterApplicant,
@@ -47,7 +49,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const [role, setRole] = useState<LoginRole>(initialRole);
   const [isRegisterMode, setIsRegisterMode] = useState(initialMode === 'register');
-  const [emailOrId, setEmailOrId] = useState('');
+  const [emailOrId, setEmailOrId] = useState(initialEmailOrId || '');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -66,6 +68,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       setRole(initialRole);
     }
   }, [initialRole]);
+
+  useEffect(() => {
+    if (initialEmailOrId) {
+      setEmailOrId(initialEmailOrId);
+    }
+  }, [initialEmailOrId]);
 
   useEffect(() => {
     setIsRegisterMode(initialMode === 'register');
@@ -202,19 +210,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     if (role === 'student') {
       const found = students.find(
         (s) =>
+          (cleanPhoneQuery.length >= 8 && s.phone.replace(/[^0-9]/g, '').includes(cleanPhoneQuery)) ||
           s.rollNo.toLowerCase() === query ||
-          s.email.toLowerCase() === query ||
-          (cleanPhoneQuery.length >= 8 && s.phone.replace(/[^0-9]/g, '').includes(cleanPhoneQuery))
+          (s.email && s.email.toLowerCase() === query) ||
+          (s.phone && s.phone.toLowerCase() === query)
       );
 
       if (!found) {
-        setErrorMessage('এই রোল নম্বর বা ইমেইল দিয়ে কোনো স্টুডেন্ট অ্যাকাউন্ট পাওয়া যায়নি! স্টুডেন্ট হিসেবে ভর্তিকৃত না থাকলে লগইন হবে না। প্রতিষ্ঠানে যোগাযোগ করুন।');
+        setErrorMessage('এই মোবাইল নম্বর বা রোল দিয়ে কোনো স্টুডেন্ট অ্যাকাউন্ট পাওয়া যায়নি! কোর্সে ভর্তি ফরম পূরণ করার সময় যে মোবাইল নম্বর দিয়েছেন তা দিয়ে লগইন করুন।');
         return;
       }
 
       const validPass = found.password || 'password123';
       if (password !== validPass) {
-        setErrorMessage('ভুল পাসওয়ার্ড! অনুগ্রহ করে সঠিক পাসওয়ার্ড দিন।');
+        setErrorMessage('ভুল পাসওয়ার্ড! ভর্তি ফরমে যে পাসওয়ার্ড সেট করেছিলেন তা প্রদান করুন।');
         return;
       }
 
@@ -508,7 +517,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   <div>
                     <label className="block font-semibold text-stone-700 mb-1">
                       {role === 'student'
-                        ? 'Student Roll Number, Email or Phone'
+                        ? 'Student Login ID / Mobile Number or Roll (স্টুডেন্ট আইডি / মোবাইল নম্বর বা রোল)'
                         : role === 'institute'
                         ? 'Admin Username, Mobile or Email'
                         : 'Applicant Mobile Number or Email'}
@@ -523,13 +532,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       }}
                       placeholder={
                         role === 'student'
-                          ? 'রোল নম্বর বা মোবাইল নম্বর'
+                          ? 'ভর্তি ফরমের মোবাইল নম্বর (যেমন: 017xxxxxxxx) বা রোল'
                           : role === 'institute'
                           ? 'admin or email'
                           : 'মোবাইল নম্বর বা ইমেইল ঠিকানা'
                       }
                       className="w-full border border-stone-300 rounded-lg p-2.5 text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 outline-none transition-colors"
                     />
+                    {role === 'student' && (
+                      <p className="text-[11px] text-sky-700 mt-1.5 font-medium flex items-center space-x-1">
+                        <span>💡</span>
+                        <span>ভর্তি ফরম পূরণের সময় যে মোবাইল নম্বর ও পাসওয়ার্ড নির্ধারণ করেছেন তা দিয়ে লগইন করুন।</span>
+                      </p>
+                    )}
                   </div>
                 )}
 

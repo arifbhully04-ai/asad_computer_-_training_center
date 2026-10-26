@@ -47,7 +47,7 @@ export const Footer: React.FC<FooterProps> = ({
             </div>
             <div className="flex items-center space-x-2 text-stone-400 text-xs pt-1">
               <ShieldCheck className="w-4 h-4 text-[#C5A880] shrink-0" />
-              <span>Government Registered IT Training & E-Services</span>
+              <span>Under Bangladesh Post Office (বাংলাদেশ ডাক বিভাগ)</span>
             </div>
           </div>
 
@@ -104,6 +104,14 @@ export const Footer: React.FC<FooterProps> = ({
                 >
                   • Passport, Visa, NID & Birth Registration
                 </button>
+              </li>
+              <li>
+                <a
+                  href="#faq-section"
+                  className="hover:text-[#C5A880] text-amber-300/80 transition-colors text-left font-medium block"
+                >
+                  • সচরাচর প্রশ্ন ও উত্তর (FAQ Section)
+                </a>
               </li>
             </ul>
           </div>

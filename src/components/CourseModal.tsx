@@ -63,10 +63,10 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 <Monitor className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[11px] uppercase tracking-wider font-semibold text-sky-700">
-                  Government Recognized IT Course
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Under Bangladesh Post Office (বাংলাদেশ ডাক বিভাগ)
                 </span>
-                <h4 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight mt-0.5">
+                <h4 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight mt-1">
                   Computer Office Application
                 </h4>
                 <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 mt-1">
@@ -76,8 +76,8 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                   </span>
                   <span>·</span>
                   <span className="flex items-center space-x-1">
-                    <Award className="w-3.5 h-3.5 text-[#C5A880]" />
-                    <span>Board Certified</span>
+                    <Award className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Post Office Authorized IT Certificate</span>
                   </span>
                 </div>
               </div>

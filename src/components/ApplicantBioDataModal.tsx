@@ -281,7 +281,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
     const newEdu: EducationRecord = {
       id: Date.now().toString(),
       exam: 'Certificate Course',
-      board: 'Technical Board (BTEB)',
+      board: 'Bangladesh Post Office (বাংলাদেশ ডাক বিভাগ)',
       roll: '',
       result: '',
       group: 'Computer Office Application',
@@ -1193,7 +1193,7 @@ export const ApplicantBioDataModal: React.FC<ApplicantBioDataModalProps> = ({
                       value={formData.computerExperience || ''}
                       onChange={(e) => setFormData({ ...formData, computerExperience: e.target.value })}
                       className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500"
-                      placeholder="Computer Office Application 6 Months (BTEB)"
+                      placeholder="Computer Office Application 6 Months (Under Bangladesh Post Office)"
                     />
                   </div>
                 </div>

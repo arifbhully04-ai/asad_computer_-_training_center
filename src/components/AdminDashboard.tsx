@@ -95,7 +95,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       title: 'New Computer Office Application Batch starts from 1st of next month',
       category: 'Student',
       date: '24 Oct 2026',
-      description: 'Morning and Evening batches admission is ongoing. Limited seats for 3-Month & 6-Month courses. Technical Education Board certified curriculum.',
+      description: 'Morning and Evening batches admission is ongoing. Limited seats for 3-Month & 6-Month courses. Under Bangladesh Post Office (বাংলাদেশ ডাক বিভাগ) certified curriculum.',
       urgent: true,
       pdfName: 'ACTC_Office_Application_Batch_Notice_2026.pdf',
     },
@@ -119,12 +119,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     },
     {
       id: 4,
-      title: 'Govt Technical Education Board 6-Month Certificate Verification Open',
+      title: 'Bangladesh Post Office 6-Month Computer Certificate Verification Open',
       category: 'General',
       date: '18 Oct 2026',
       description: 'Roll verification and registration card distribution for July-December semester is open. Contact institute office at Bottola, Bhully Bazar.',
       urgent: false,
-      pdfName: 'BTEB_Certificate_Verification_Process.pdf',
+      pdfName: 'Post_Office_Certificate_Verification_Process.pdf',
     },
   ];
 
@@ -996,7 +996,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <button
                               onClick={() => handleToggleCertificate(student)}
                               className="px-2 py-1.5 bg-stone-100 hover:bg-emerald-100 text-stone-700 hover:text-emerald-800 rounded font-medium text-[11px] transition-colors cursor-pointer"
-                              title="Toggle Board Certification"
+                              title="Toggle Certificate Status"
                             >
                               Certificate
                             </button>

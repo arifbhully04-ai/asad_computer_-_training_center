@@ -947,6 +947,7 @@ export const EDUCATION_BOARDS = [
   'Sylhet',
   'Mymensingh',
   'Madrasah Board',
+  'Bangladesh Post Office (বাংলাদেশ ডাক বিভাগ)',
   'Technical Board (BTEB)',
   'Cambridge / Edexcel',
   'Other / Equivalent',

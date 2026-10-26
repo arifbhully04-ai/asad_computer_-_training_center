@@ -124,12 +124,13 @@ export const savePersistentApplicants = (applicants: ApplicantAccount[]): void =
 
 /**
  * Load and deep-merge students across all storage keys.
+ * Preserves user-created passwords and accounts permanently across all updates and reloads.
  */
 export const loadPersistentStudents = (defaultList: StudentAccount[]): StudentAccount[] => {
   const mergedMap = new Map<string, StudentAccount>();
 
   defaultList.forEach((s) => {
-    const key = s.rollNo || cleanPhone(s.phone) || String(s.id);
+    const key = cleanPhone(s.phone) || (s.rollNo ? s.rollNo.toLowerCase() : String(s.id));
     mergedMap.set(key, s);
   });
 
@@ -140,20 +141,41 @@ export const loadPersistentStudents = (defaultList: StudentAccount[]): StudentAc
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           parsed.forEach((item: StudentAccount) => {
-            if (item && (item.rollNo || item.phone || item.id)) {
-              const key = item.rollNo || cleanPhone(item.phone) || String(item.id);
-              if (mergedMap.has(key)) {
-                const existing = mergedMap.get(key)!;
-                mergedMap.set(key, { ...existing, ...item, password: item.password || existing.password || 'password123' });
+            if (item && (item.phone || item.rollNo || item.id)) {
+              const phoneKey = cleanPhone(item.phone);
+              const rollKey = item.rollNo ? item.rollNo.toLowerCase() : '';
+              
+              // Find if already keyed either by phone or roll
+              let matchKey = '';
+              if (phoneKey && mergedMap.has(phoneKey)) {
+                matchKey = phoneKey;
+              } else if (rollKey && mergedMap.has(rollKey)) {
+                matchKey = rollKey;
               } else {
-                mergedMap.set(key, item);
+                matchKey = phoneKey || rollKey || String(item.id);
+              }
+
+              if (mergedMap.has(matchKey)) {
+                const existing = mergedMap.get(matchKey)!;
+                mergedMap.set(matchKey, {
+                  ...existing,
+                  ...item,
+                  // STRICTLY keep user's created password
+                  password: item.password || existing.password || 'password123',
+                  name: item.name || existing.name,
+                  course: item.course || existing.course,
+                  batch: item.batch || existing.batch,
+                  status: item.status || existing.status,
+                });
+              } else {
+                mergedMap.set(matchKey, item);
               }
             }
           });
         }
       }
     } catch (e) {
-      console.warn(e);
+      console.warn('[ACTC Storage] Error reading students from key', storageKey, e);
     }
   });
 

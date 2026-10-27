@@ -176,3 +176,17 @@ export interface JobApplication {
   paymentSubmissionDate?: string;
   paymentVerificationStatus?: 'Verified' | 'PendingVerification' | 'None';
 }
+
+export interface PasswordResetRequest {
+  id: number;
+  name: string;
+  phone: string;
+  role: 'student' | 'applicant';
+  identifier?: string;
+  courseOrJob?: string;
+  requestDate: string;
+  notes?: string;
+  status: 'Pending' | 'Sent' | 'Resolved';
+  recoveredPassword?: string;
+}
+

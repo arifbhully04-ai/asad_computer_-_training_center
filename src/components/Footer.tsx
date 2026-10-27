@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapPin, Phone, Mail, MessageCircle, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { UniversitySeal } from './UniversitySeal.tsx';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface FooterProps {
   onSelectNavItem?: (item: string, details?: string) => void;
@@ -13,6 +14,8 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenCourseModal,
   onOpenAdmission,
 }) => {
+  const { trans, t, language } = useLanguage();
+
   return (
     <footer className="bg-[#18181b] text-stone-300 pt-16 pb-12 border-t border-stone-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -26,83 +29,84 @@ export const Footer: React.FC<FooterProps> = ({
               <UniversitySeal size={56} className="text-[#C5A880]" />
               <div>
                 <h3 className="font-cinzel text-white text-base font-bold tracking-wide">
-                  Asad Computer
+                  {trans('Asad Computer', 'আসাদ কম্পিউটার')}
                 </h3>
                 <p className="text-xs uppercase tracking-widest text-[#C5A880] font-medium">
-                  & Training Center
+                  {trans('& Training Center', '& ট্রেনিং সেন্টার')}
                 </p>
               </div>
             </div>
             <p className="text-stone-400 text-xs sm:text-sm leading-relaxed pt-2">
-              Empowering students and job seekers with certified Computer Office Application skills and dependable online government and institutional application services.
+              {t('footerAboutText')}
             </p>
             <div className="pt-2">
               <button
                 onClick={() => onOpenAdmission?.()}
-                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-[#C5A880] hover:bg-[#b0936b] text-stone-950 font-bold text-xs uppercase tracking-wider rounded transition-colors"
+                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-[#C5A880] hover:bg-[#b0936b] text-stone-950 font-bold text-xs uppercase tracking-wider rounded transition-colors cursor-pointer"
               >
-                <span>Online Admission Form</span>
+                <span>{t('footerOnlineAdmissionBtn')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
             <div className="flex items-center space-x-2 text-stone-400 text-xs pt-1">
               <ShieldCheck className="w-4 h-4 text-[#C5A880] shrink-0" />
-              <span>Under Bangladesh Post Office (বাংলাদেশ ডাক বিভাগ)</span>
+              <span>{t('footerUnderPostOffice')}</span>
             </div>
           </div>
+
 
           {/* Column 2: Key Courses & Services */}
           <div>
             <h4 className="text-white text-xs uppercase tracking-[0.2em] font-cinzel font-semibold mb-4 border-b border-stone-800 pb-2">
-              Courses & Programs
+              {trans('Courses & Programs', 'কোর্স ও প্রোগ্রাম')}
             </h4>
             <ul className="space-y-2.5 text-xs sm:text-sm text-stone-400">
               <li>
                 <button
                   onClick={() => onOpenCourseModal?.()}
-                  className="hover:text-white transition-colors text-left font-semibold text-stone-200"
+                  className="hover:text-white transition-colors text-left font-semibold text-stone-200 cursor-pointer"
                 >
-                  • Computer Office Application (3 & 6 Months)
+                  {trans('• Computer Office Application (3 & 6 Months)', '• কম্পিউটার অফিস অ্যাপ্লিকেশন (৩ ও ৬ মাস)')}
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onOpenCourseModal?.()}
-                  className="hover:text-white transition-colors text-left"
+                  className="hover:text-white transition-colors text-left cursor-pointer"
                 >
-                  • MS Word, Excel, PowerPoint & Access
+                  {trans('• MS Word, Excel, PowerPoint & Access', '• এমএস ওয়ার্ড, এক্সেল, পাওয়ারপয়েন্ট ও অ্যাক্সেস')}
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onOpenCourseModal?.()}
-                  className="hover:text-white transition-colors text-left"
+                  className="hover:text-white transition-colors text-left cursor-pointer"
                 >
-                  • English & Bengali (Bijoy/Avro) Typing
+                  {trans('• English & Bengali (Bijoy/Avro) Typing', '• ইংরেজি ও বাংলা (বিজয়/অভ্র) টাইপিং')}
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onSelectNavItem?.('Online Services')}
-                  className="hover:text-white transition-colors text-left"
+                  className="hover:text-white transition-colors text-left cursor-pointer"
                 >
-                  • All Government & Private Job Applications
+                  {trans('• All Government & Private Job Applications', '• সকল সরকারি ও বেসরকারি চাকুরীর আবেদন')}
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onSelectNavItem?.('Online Services')}
-                  className="hover:text-white transition-colors text-left"
+                  className="hover:text-white transition-colors text-left cursor-pointer"
                 >
-                  • University & College Admission Forms
+                  {trans('• University & College Admission Forms', '• বিশ্ববিদ্যালয় ও কলেজ ভর্তি আবেদন')}
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onSelectNavItem?.('Online Services')}
-                  className="hover:text-white transition-colors text-left"
+                  className="hover:text-white transition-colors text-left cursor-pointer"
                 >
-                  • Passport, Visa, NID & Birth Registration
+                  {trans('• Passport, Visa, NID & Birth Registration', '• পাসপোর্ট, ভিসা, এনআইডি ও জন্ম নিবন্ধন')}
                 </button>
               </li>
               <li>
@@ -110,7 +114,7 @@ export const Footer: React.FC<FooterProps> = ({
                   href="#faq-section"
                   className="hover:text-[#C5A880] text-amber-300/80 transition-colors text-left font-medium block"
                 >
-                  • সচরাচর প্রশ্ন ও উত্তর (FAQ Section)
+                  • {trans('Frequently Asked Questions (FAQ)', 'সচরাচর প্রশ্ন ও উত্তর (FAQ Section)')}
                 </a>
               </li>
             </ul>
@@ -119,14 +123,16 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Column 3: Contact & Direct Channels */}
           <div>
             <h4 className="text-white text-xs uppercase tracking-[0.2em] font-cinzel font-semibold mb-4 border-b border-stone-800 pb-2">
-              Direct Contact
+              {trans('Direct Contact', 'সরাসরি যোগাযোগ')}
             </h4>
             <ul className="space-y-3.5 text-xs sm:text-sm text-stone-400">
               {/* Phone Numbers */}
               <li className="flex items-start space-x-3">
                 <Phone className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" />
                 <div className="flex flex-col">
-                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium">Phone Numbers</span>
+                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium">
+                    {trans('Phone Numbers', 'মোবাইল নম্বর')}
+                  </span>
                   <div className="flex flex-wrap gap-x-3 text-stone-300">
                     <a href="tel:01773733654" className="hover:text-white transition-colors">
                       01773-733654
@@ -143,7 +149,9 @@ export const Footer: React.FC<FooterProps> = ({
               <li className="flex items-start space-x-3">
                 <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div className="flex flex-col">
-                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium">WhatsApp Support</span>
+                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium">
+                    {trans('WhatsApp Support', 'হোয়াটসঅ্যাপ সহায়তা')}
+                  </span>
                   <a
                     href="https://wa.me/8801407215416"
                     target="_blank"
@@ -159,7 +167,9 @@ export const Footer: React.FC<FooterProps> = ({
               <li className="flex items-start space-x-3">
                 <Mail className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" />
                 <div className="flex flex-col">
-                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium">Email Address</span>
+                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium">
+                    {trans('Email Address', 'ইমেইল ঠিকানা')}
+                  </span>
                   <a
                     href="mailto:bhulli.postoffice@gmail.com"
                     className="text-stone-300 hover:text-white transition-colors break-all"
@@ -174,16 +184,18 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Column 4: Office Address & Hours */}
           <div>
             <h4 className="text-white text-xs uppercase tracking-[0.2em] font-cinzel font-semibold mb-4 border-b border-stone-800 pb-2">
-              Center Location
+              {trans('Center Location', 'প্রতিষ্ঠানের ঠিকানা')}
             </h4>
             <div className="space-y-4 text-xs sm:text-sm text-stone-400">
               <div className="flex items-start space-x-3">
                 <MapPin className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" />
                 <div>
-                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium block">Physical Address</span>
+                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium block">
+                    {trans('Physical Address', 'সরাসরি ঠিকানা')}
+                  </span>
                   <p className="text-stone-200 font-medium leading-relaxed mt-0.5">
-                    Bottola, Bhully Bazar,<br />
-                    Bhully, Thakurgaon
+                    {trans('Bottola, Bhully Bazar,', 'বটতলা, ভুল্লী বাজার,')}<br />
+                    {trans('Bhully, Thakurgaon', 'ভুল্লী, ঠাকুরগাঁও')}
                   </p>
                 </div>
               </div>
@@ -191,10 +203,12 @@ export const Footer: React.FC<FooterProps> = ({
               <div className="flex items-start space-x-3 pt-1">
                 <Clock className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" />
                 <div>
-                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium block">Service Hours</span>
+                  <span className="text-[11px] uppercase tracking-wider text-stone-500 font-medium block">
+                    {trans('Service Hours', 'সেবার সময়সূচী')}
+                  </span>
                   <p className="text-stone-300 text-xs leading-relaxed mt-0.5">
-                    Saturday – Thursday: 8:00 AM – 9:00 PM<br />
-                    Friday: 3:00 PM – 8:00 PM (Emergency Applications)
+                    {trans('Saturday – Thursday: 8:00 AM – 9:00 PM', 'শনিবার - বৃহস্পতিবার: সকাল ৮:০০ - রাত ৯:০০')}<br />
+                    {trans('Friday: 3:00 PM – 8:00 PM (Emergency Applications)', 'শুক্রবার: বিকেল ৩:০০ - রাত ৮:০০ (জরুরি আবেদন)')}
                   </p>
                 </div>
               </div>
@@ -206,12 +220,13 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Bottom Bar: Copyright & Center Name */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-500 gap-4">
           <p>
-            © {new Date().getFullYear()} <span className="text-stone-300 font-medium">Asad Computer & Training Center</span>. All rights reserved.
+            © {new Date().getFullYear()} <span className="text-stone-300 font-medium">{trans('Asad Computer & Training Center', 'আসাদ কম্পিউটার অ্যান্ড ট্রেনিং সেন্টার')}</span>. {trans('All rights reserved.', 'সর্বস্বত্ব সংরক্ষিত।')}
           </p>
           <p className="text-center sm:text-right text-stone-500">
-            Bottola, Bhully Bazar, Bhully, Thakurgaon · Phone: 01773-733654
+            {trans('Bottola, Bhully Bazar, Bhully, Thakurgaon · Phone: 01773-733654', 'বটতলা, ভুল্লী বাজার, ভুল্লী, ঠাকুরগাঁও · মোবাইল: ০১৭৭৩-৭৩৩৬৫৪')}
           </p>
         </div>
+
 
       </div>
     </footer>

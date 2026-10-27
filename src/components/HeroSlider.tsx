@@ -1,43 +1,70 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { SlideData } from '../types.ts';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface HeroSliderProps {
   onCtaClick: (type: 'programs' | 'learn-more', slide: SlideData) => void;
 }
 
-const slides: SlideData[] = [
+const baseSlides = [
   {
     id: 1,
-    title: 'Asad Computer & Training Center',
-    subtitle:
+    titleEn: 'Asad Computer & Training Center',
+    titleBn: 'আসাদ কম্পিউটার অ্যান্ড ট্রেনিং সেন্টার',
+    subtitleEn:
       'Empowering students and job seekers with essential computer literacy, certified practical office skills, and end-to-end online document submission services.',
-    primaryCta: 'EXPLORE COURSES',
-    secondaryCta: 'ONLINE SERVICES',
+    subtitleBn:
+      'শিক্ষার্থী ও চাকুরিপ্রার্থীদের জন্য প্রয়োজনীয় কম্পিউটার সাক্ষরতা, অনুমোদিত ব্যবহারিক অফিস দক্ষতা এবং নির্ভরযোগ্য অনলাইন আবেদন সেবা।',
+    primaryCtaEn: 'EXPLORE COURSES',
+    primaryCtaBn: 'কোর্সসমূহ দেখুন',
+    secondaryCtaEn: 'ONLINE SERVICES',
+    secondaryCtaBn: 'অনলাইন সেবা',
     image: '/src/assets/images/computer_training_lab_1792824307233.jpg',
   },
   {
     id: 2,
-    title: 'Computer Office Application Course',
-    subtitle:
+    titleEn: 'Computer Office Application Course',
+    titleBn: 'কম্পিউটার অফিস অ্যাপ্লিকেশন কোর্স',
+    subtitleEn:
       'Master MS Word, Excel, PowerPoint, Access, Internet browsing, and high-speed typing at Asad Computer & Training Center. Comprehensive 3-month and 6-month certified courses.',
-    primaryCta: 'ENROLL IN COURSE',
-    secondaryCta: 'COURSE SYLLABUS',
+    subtitleBn:
+      'এমএস ওয়ার্ড, এক্সেল, পাওয়ারপয়েন্ট, অ্যাক্সেস, ইন্টারনেট ও দ্রুতগতির টাইপিং শিখুন আসাদ কম্পিউটার ট্রেনিং সেন্টারে। ৩ মাস ও ৬ মাস মেয়াদী অনুমোদিত কোর্স।',
+    primaryCtaEn: 'ENROLL IN COURSE',
+    primaryCtaBn: 'কোর্সে ভর্তি হন',
+    secondaryCtaEn: 'COURSE SYLLABUS',
+    secondaryCtaBn: 'কোর্স সিলেবাস',
     image: '/src/assets/images/computer_training_lab_1792824307233.jpg',
   },
   {
     id: 3,
-    title: 'All Online Application & Digital Services',
-    subtitle:
+    titleEn: 'All Online Application & Digital Services',
+    titleBn: 'সকল অনলাইন আবেদন ও ডিজিটাল সেবা',
+    subtitleEn:
       'Fast, accurate, and hassle-free online application services for government and private jobs, university & college admissions, passport, NID, and digital certificates.',
-    primaryCta: 'APPLY ONLINE',
-    secondaryCta: 'VIEW ALL SERVICES',
+    subtitleBn:
+      'সরকারি-বেসরকারি চাকরি, বিশ্ববিদ্যালয় ও কলেজ ভর্তি, পাসপোর্ট, এনআইডি ও ডিজিটাল সনদের দ্রুত ও নির্ভুল অনলাইন আবেদন সেবা।',
+    primaryCtaEn: 'APPLY ONLINE',
+    primaryCtaBn: 'অনলাইন আবেদন',
+    secondaryCtaEn: 'VIEW ALL SERVICES',
+    secondaryCtaBn: 'সকল সেবা দেখুন',
     image: '/src/assets/images/online_service_desk_1792824307618.jpg',
   },
 ];
 
 export const HeroSlider: React.FC<HeroSliderProps> = ({ onCtaClick }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const { language } = useLanguage();
+
+  const slides: SlideData[] = baseSlides.map((s) => ({
+    id: s.id,
+    title: language === 'bn' ? s.titleBn : s.titleEn,
+    subtitle: language === 'bn' ? s.subtitleBn : s.subtitleEn,
+    primaryCta: language === 'bn' ? s.primaryCtaBn : s.primaryCtaEn,
+    secondaryCta: language === 'bn' ? s.secondaryCtaBn : s.secondaryCtaEn,
+    image: s.image,
+  }));
+
 
   const prevSlide = () => {
     setCurrentSlideIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));

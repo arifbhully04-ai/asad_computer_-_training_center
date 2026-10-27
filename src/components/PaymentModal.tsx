@@ -14,8 +14,10 @@ import {
   Smartphone,
   Info,
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 export interface PaymentDetails {
+
   paymentMethod: 'bKash' | 'Nagad' | 'Rocket';
   senderPhone: string;
   transactionId: string;

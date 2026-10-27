@@ -16,8 +16,9 @@ import {
   Mail,
   Briefcase,
 } from 'lucide-react';
-import { StudentAccount, ApplicantAccount } from '../types.ts';
+import { StudentAccount, ApplicantAccount, PasswordResetRequest } from '../types.ts';
 import { loadPersistentStudents } from '../utils/storageManager.ts';
+import { ForgotPasswordModal } from './ForgotPasswordModal.tsx';
 
 export type LoginRole = 'student' | 'applicant' | 'institute';
 
@@ -57,6 +58,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [targetJob, setTargetJob] = useState(initialJobTitle || '');
   const [showPassword, setShowPassword] = useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Status & Error messaging states
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -621,8 +623,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => alert('Password reset helpline: 01773-733654 or visit Bottola, Bhully Bazar center.')}
-                      className="text-emerald-700 hover:underline font-medium cursor-pointer"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold cursor-pointer transition-colors"
                     >
                       Forgot Password?
                     </button>
@@ -679,6 +681,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         </div>
 
       </div>
+
+      {showForgotPassword && (
+        <ForgotPasswordModal
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+          initialRole={role === 'student' ? 'student' : 'applicant'}
+          initialIdentifier={emailOrId}
+          students={students}
+          applicants={applicants}
+          onBackToLogin={() => setShowForgotPassword(false)}
+        />
+      )}
     </div>
   );
 };
+

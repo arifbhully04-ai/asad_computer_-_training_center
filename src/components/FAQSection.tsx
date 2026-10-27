@@ -10,6 +10,8 @@ import {
   PhoneCall,
   CheckCircle2,
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext.tsx';
+
 
 export interface FAQItem {
   id: string;
@@ -152,7 +154,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
   onContactClick,
   defaultOpen = false,
 }) => {
-  // CRITICAL REQUIREMENT: By default it is NOT shown ("সাধারণ জিজ্ঞাসা ও উত্তর · FAQ তে ক্লিক দিলে তবেই দেখাবে নয়তো দেখাবেনা")
+  const { language, trans, t } = useLanguage();
   const [isSectionOpen, setIsSectionOpen] = useState(defaultOpen);
   const [activeCategory, setActiveCategory] = useState<'all' | 'training' | 'services' | 'security'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -214,7 +216,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
               ? 'bg-gradient-to-r from-amber-500/10 via-white to-amber-500/15 border-amber-400 shadow-md ring-2 ring-amber-400/20'
               : 'bg-white hover:bg-stone-50 border-stone-200 shadow-xs hover:shadow-md hover:border-amber-300'
           }`}
-          title="সাধারণ জিজ্ঞাসা ও উত্তর · FAQ দেখতে বা লুকানোর জন্য ক্লিক করুন"
+          title={trans('Click to view or hide FAQ', 'সাধারণ জিজ্ঞাসা ও উত্তর · FAQ দেখতে বা লুকানোর জন্য ক্লিক করুন')}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center space-x-3.5 sm:space-x-4">
@@ -230,19 +232,19 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-900 border border-amber-500/30">
-                    সাধারণ জিজ্ঞাসা ও উত্তর · FAQ
+                    {t('faqBadge')}
                   </span>
                   <span className="text-[11px] text-stone-400 font-mono">
-                    ({FAQ_DATA.length} টি প্রশ্নোত্তর)
+                    ({FAQ_DATA.length} {trans('Q&A Items', 'টি প্রশ্নোত্তর')})
                   </span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-stone-900 mt-1.5 group-hover:text-amber-900 transition-colors">
-                  সাধারণ জিজ্ঞাসা ও উত্তর · FAQ
+                  {trans('Frequently Asked Questions (FAQ)', 'সাধারণ জিজ্ঞাসা ও উত্তর · FAQ')}
                 </h3>
                 <p className="text-xs text-stone-500 mt-0.5">
                   {isSectionOpen
-                    ? 'প্রশ্নোত্তর লুকানোর জন্য এখানে ক্লিক করুন।'
-                    : 'কোর্স, সার্টিফিকেট, চাকুরীর আবেদন ও ইউজার আইডি সংক্রান্ত সাধারণ প্রশ্নাবলী দেখতে ক্লিক করুন।'}
+                    ? t('faqSubOpen')
+                    : t('faqSubClosed')}
                 </p>
               </div>
             </div>
@@ -255,7 +257,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                     : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-stone-950 shadow-xs'
                 }`}
               >
-                <span>{isSectionOpen ? 'প্রশ্নোত্তর বন্ধ করুন (Hide FAQ)' : 'প্রশ্নোত্তর দেখুন (Click to View FAQ)'}</span>
+                <span>{isSectionOpen ? trans('Hide FAQ', 'প্রশ্নোত্তর বন্ধ করুন (Hide FAQ)') : trans('Click to View FAQ', 'প্রশ্নোত্তর দেখুন (Click to View FAQ)')}</span>
                 {isSectionOpen ? (
                   <ChevronUp className="w-4 h-4" />
                 ) : (
@@ -272,10 +274,13 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
             {/* Expanded Header Note */}
             <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
               <h2 className="text-2xl sm:text-3xl font-serif-academic text-stone-900 font-bold tracking-tight">
-                সচরাচর জিজ্ঞাসিত প্রশ্নাবলী
+                {trans('Commonly Asked Questions & Answers', 'সচরাচর জিজ্ঞাসিত প্রশ্নাবলী')}
               </h2>
               <p className="text-stone-500 text-xs sm:text-sm mt-2 max-w-xl mx-auto leading-relaxed">
-                বাংলাদেশ ডাক বিভাগের আওতাধীন কম্পিউটার কোর্স, সনদপত্র, সরকারি চাকুরীর অনলাইন আবেদন এবং আইডি-পাসওয়ার্ড সুরক্ষা সম্পর্কিত গুরুত্বপূর্ণ তথ্যসমূহ।
+                {trans(
+                  'Essential information regarding computer training courses under Bangladesh Post Office, certificates, government job applications, and student login ID security.',
+                  'বাংলাদেশ ডাক বিভাগের আওতাধীন কম্পিউটার কোর্স, সনদপত্র, সরকারি চাকুরীর অনলাইন আবেদন এবং আইডি-পাসওয়ার্ড সুরক্ষা সম্পর্কিত গুরুত্বপূর্ণ তথ্যসমূহ।'
+                )}
               </p>
 
               {/* Quick Search Input */}
@@ -285,15 +290,18 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="প্রশ্ন খুঁজুন (যেমন: কোর্স, সার্টিফিকেট, আবেদন, পাসওয়ার্ড)..."
+                  placeholder={trans(
+                    'Search questions (e.g., course duration, certificate validity, fees)...',
+                    'প্রশ্ন খুঁজুন (যেমন: কোর্স, সার্টিফিকেট, আবেদন, পাসওয়ার্ড)...'
+                  )}
                   className="w-full bg-white rounded-full py-2.5 pl-11 pr-4 text-xs sm:text-sm text-stone-800 placeholder:text-stone-400 shadow-xs border border-stone-200 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-all"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="text-stone-400 hover:text-stone-600 text-xs absolute right-4 top-1/2 -translate-y-1/2 px-1"
+                    className="text-stone-400 hover:text-stone-600 text-xs absolute right-4 top-1/2 -translate-y-1/2 px-1 cursor-pointer"
                   >
-                    মুছুন
+                    {trans('Clear', 'মুছুন')}
                   </button>
                 )}
               </div>
@@ -308,7 +316,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                       : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
                   }`}
                 >
-                  সকল প্রশ্ন ({FAQ_DATA.length})
+                  {trans(`All Questions (${FAQ_DATA.length})`, `সকল প্রশ্ন (${FAQ_DATA.length})`)}
                 </button>
                 <button
                   onClick={() => setActiveCategory('training')}
@@ -319,7 +327,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                   }`}
                 >
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>কম্পিউটার কোর্স ও সার্টিফিকেট</span>
+                  <span>{trans('Computer Training & Certificate', 'কম্পিউটার কোর্স ও সার্টিফিকেট')}</span>
                 </button>
                 <button
                   onClick={() => setActiveCategory('services')}
@@ -330,7 +338,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                   }`}
                 >
                   <Briefcase className="w-3.5 h-3.5" />
-                  <span>চাকুরীর আবেদন ও ই-সার্ভিস</span>
+                  <span>{trans('Job Applications & E-Services', 'চাকুরীর আবেদন ও ই-সার্ভিস')}</span>
                 </button>
                 <button
                   onClick={() => setActiveCategory('security')}
@@ -341,16 +349,20 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>আইডি ও পাসওয়ার্ড সুরক্ষা</span>
+                  <span>{trans('ID & Password Security', 'আইডি ও পাসওয়ার্ড সুরক্ষা')}</span>
                 </button>
               </div>
             </div>
 
-            {/* FAQ Accordion List */}
+            {/* Accordion Questions List */}
             <div className="space-y-3 max-w-4xl mx-auto">
               {filteredFaqs.length > 0 ? (
                 filteredFaqs.map((faq) => {
                   const isOpen = !!openItems[faq.id];
+                  const primaryQuestion = language === 'bn' ? faq.questionBn : faq.questionEn;
+                  const secondaryQuestion = language === 'bn' ? faq.questionEn : faq.questionBn;
+                  const primaryAnswer = language === 'bn' ? faq.answerBn : faq.answerEn;
+                  const secondaryAnswer = language === 'bn' ? faq.answerEn : faq.answerBn;
 
                   return (
                     <div
@@ -398,17 +410,17 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                                 }`}
                               >
                                 {faq.category === 'training'
-                                  ? 'কোর্স'
+                                  ? trans('Course', 'কোর্স')
                                   : faq.category === 'services'
-                                  ? 'অনলাইন সার্ভিস'
-                                  : 'আইডি ও পাসওয়ার্ড'}
+                                  ? trans('Online Service', 'অনলাইন সার্ভিস')
+                                  : trans('ID & Password', 'আইডি ও পাসওয়ার্ড')}
                               </span>
                             </div>
                             <h3 className="font-semibold text-stone-900 text-sm sm:text-base mt-1.5 leading-snug">
-                              {faq.questionBn}
+                              {primaryQuestion}
                             </h3>
                             <p className="text-[11px] text-stone-400 font-sans mt-0.5">
-                              {faq.questionEn}
+                              {secondaryQuestion}
                             </p>
                           </div>
                         </div>
@@ -426,17 +438,17 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                       {isOpen && (
                         <div className="px-4 pb-5 sm:px-6 sm:pb-6 pt-1 border-t border-stone-100 text-xs sm:text-sm text-stone-600 leading-relaxed space-y-3 animate-in fade-in duration-200">
                           <p className="font-normal text-stone-700 leading-relaxed text-justify sm:text-left">
-                            {faq.answerBn}
+                            {primaryAnswer}
                           </p>
 
                           <p className="text-[11px] text-stone-400 italic">
-                            {faq.answerEn}
+                            {secondaryAnswer}
                           </p>
 
                           {/* Highlight Bullets */}
                           {faq.highlights && faq.highlights.length > 0 && (
                             <div className="pt-2 flex flex-wrap gap-2">
-                              {faq.highlights.map((h, idx) => (
+                              {(language === 'bn' ? faq.highlights : (faq.highlightsEn || faq.highlights)).map((h, idx) => (
                                 <span
                                   key={idx}
                                   className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-stone-50 border border-stone-200 text-stone-700 text-[11px] font-medium"
@@ -455,7 +467,9 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
               ) : (
                 <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-stone-300 p-6">
                   <HelpCircle className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-stone-700">কোনো প্রশ্ন পাওয়া যায়নি</p>
+                  <p className="text-sm font-semibold text-stone-700">
+                    {trans('No questions found matching your search', 'কোনো প্রশ্ন পাওয়া যায়নি')}
+                  </p>
                   <button
                     onClick={() => {
                       setSearchQuery('');
@@ -463,7 +477,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                     }}
                     className="mt-3 text-xs font-bold text-amber-700 hover:underline cursor-pointer"
                   >
-                    সকল প্রশ্ন প্রদর্শন করুন
+                    {trans('Show all questions', 'সকল প্রশ্ন প্রদর্শন করুন')}
                   </button>
                 </div>
               )}
@@ -473,13 +487,16 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
             <div className="mt-10 bg-gradient-to-r from-stone-900 via-[#182035] to-stone-900 rounded-2xl p-6 sm:p-8 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="space-y-1.5 text-center md:text-left">
                 <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">
-                  আরো কিছু জানতে চান?
+                  {trans('Have more questions?', 'আরো কিছু জানতে চান?')}
                 </span>
                 <h4 className="text-lg sm:text-xl font-bold text-white">
-                  সরাসরি আমাদের সেন্টারে আসুন অথবা অনলাইনে যোগাযোগ করুন
+                  {trans('Visit Our Center or Contact Us Online', 'সরাসরি আমাদের সেন্টারে আসুন অথবা অনলাইনে যোগাযোগ করুন')}
                 </h4>
                 <p className="text-xs text-stone-300 max-w-xl leading-relaxed">
-                  বটতলী, ভুল্লী বাজার, ভুল্লী, ঠাকুরগাঁও। প্রতিদিন সকাল ৮:০০টা থেকে রাত ৮:০০টা পর্যন্ত খোলা।
+                  {trans(
+                    'Bottola, Bhully Bazar, Bhully, Thakurgaon. Open daily 8:00 AM – 8:00 PM (Except Friday afternoon).',
+                    'বটতলী, ভুল্লী বাজার, ভুল্লী, ঠাকুরগাঁও। প্রতিদিন সকাল ৮:০০টা থেকে রাত ৮:০০টা পর্যন্ত খোলা।'
+                  )}
                 </p>
               </div>
 
@@ -489,7 +506,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                     onClick={onOpenAdmission}
                     className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-stone-950 text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
                   >
-                    ভর্তি ফরম পূরণ করুন
+                    {trans('Fill Online Admission Form', 'ভর্তি ফরম পূরণ করুন')}
                   </button>
                 )}
 
@@ -498,7 +515,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                     onClick={onOpenJobPortal}
                     className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl border border-white/20 transition-all cursor-pointer"
                   >
-                    চাকুরীর সার্কুলার পোর্টাল
+                    {trans('Job Circulars Portal', 'চাকুরীর সার্কুলার পোর্টাল')}
                   </button>
                 )}
 
@@ -507,7 +524,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                   className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-all flex items-center space-x-1.5"
                 >
                   <PhoneCall className="w-3.5 h-3.5" />
-                  <span>০১৭৭৩-৭৩৩৬৫৪</span>
+                  <span>01773-733654</span>
                 </a>
               </div>
             </div>
@@ -525,7 +542,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                 className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-full bg-stone-200 hover:bg-stone-300 text-stone-800 text-xs font-bold transition-all cursor-pointer shadow-xs"
               >
                 <ChevronUp className="w-4 h-4" />
-                <span>প্রশ্নোত্তর বন্ধ করুন (Hide FAQ)</span>
+                <span>{trans('Hide FAQ', 'প্রশ্নোত্তর বন্ধ করুন (Hide FAQ)')}</span>
               </button>
             </div>
           </div>
@@ -535,3 +552,4 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
     </section>
   );
 };
+

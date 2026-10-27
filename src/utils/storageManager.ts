@@ -1,6 +1,11 @@
-import { ApplicantAccount, StudentAccount, NoticeItem, JobApplication } from '../types.ts';
+import { ApplicantAccount, StudentAccount, NoticeItem, JobApplication, PasswordResetRequest } from '../types.ts';
 
 // Known keys used across different versions/deployments to ensure NO user is ever lost
+const PASSWORD_REQUEST_STORAGE_KEYS = [
+  'actc_permanent_password_requests',
+  'actc_password_requests',
+];
+
 const APPLICANT_STORAGE_KEYS = [
   'actc_permanent_applicants',
   'actc_applicants_v2',
@@ -326,6 +331,47 @@ export const savePersistentSession = (session: Record<string, any>): void => {
     });
   } catch (e) {
     console.error(e);
+  }
+};
+
+/**
+ * Load and save Password Reset Requests
+ */
+export const loadPersistentPasswordRequests = (): PasswordResetRequest[] => {
+  const requestsMap = new Map<number, PasswordResetRequest>();
+  PASSWORD_REQUEST_STORAGE_KEYS.forEach((key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((req: PasswordResetRequest) => {
+            if (req && req.id) {
+              requestsMap.set(req.id, req);
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(`[ACTC Storage] Error reading key ${key}:`, e);
+    }
+  });
+
+  return Array.from(requestsMap.values()).sort((a, b) => b.id - a.id);
+};
+
+export const savePersistentPasswordRequests = (requests: PasswordResetRequest[]): void => {
+  try {
+    const payload = JSON.stringify(requests);
+    PASSWORD_REQUEST_STORAGE_KEYS.forEach((key) => {
+      try {
+        localStorage.setItem(key, payload);
+      } catch (err) {
+        console.warn(`[ACTC Storage] Error saving key ${key}:`, err);
+      }
+    });
+  } catch (e) {
+    console.error('[ACTC Storage] Failed to serialize password requests:', e);
   }
 };
 

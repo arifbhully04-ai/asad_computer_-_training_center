@@ -31,13 +31,14 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
-import { NoticeItem, StudentAccount, ApplicantAccount, JobApplication, StudentPaymentRecord } from '../types.ts';
+import { NoticeItem, StudentAccount, ApplicantAccount, JobApplication, StudentPaymentRecord, PasswordResetRequest } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 import { StudentProfileModal } from './StudentProfileModal.tsx';
 import { ApplicantProfileModal } from './ApplicantProfileModal.tsx';
 import { ApplicantBioDataModal } from './ApplicantBioDataModal.tsx';
 import { ApplicationStatusBadge, isApplicationCompleted } from './ApplicationStatusBadge.tsx';
-import { downloadDatabaseBackupFile } from '../utils/storageManager.ts';
+import { downloadDatabaseBackupFile, loadPersistentPasswordRequests, savePersistentPasswordRequests } from '../utils/storageManager.ts';
+
 
 export interface AdminDashboardProps {
   onLogout: () => void;
@@ -87,6 +88,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [restoreMessage, setRestoreMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [adminStatusToast, setAdminStatusToast] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [passwordRequests, setPasswordRequests] = useState<PasswordResetRequest[]>(() => loadPersistentPasswordRequests());
+
+  const handleMarkPasswordSent = (requestId: number) => {
+    const updated = passwordRequests.map((r) => (r.id === requestId ? { ...r, status: 'Sent' as const } : r));
+    setPasswordRequests(updated);
+    savePersistentPasswordRequests(updated);
+    setAdminStatusToast('পাসওয়ার্ড স্ট্যাটাস "Sent (পাঠানো হয়েছে)" হিসেবে আপডেট হয়েছে!');
+    setTimeout(() => setAdminStatusToast(null), 3000);
+  };
+
+  const handleDeletePasswordRequest = (requestId: number) => {
+    const updated = passwordRequests.filter((r) => r.id !== requestId);
+    setPasswordRequests(updated);
+    savePersistentPasswordRequests(updated);
+    setAdminStatusToast('পাসওয়ার্ড রিকোয়েস্ট মুছে ফেলা হয়েছে!');
+    setTimeout(() => setAdminStatusToast(null), 3000);
+  };
+
+  const handleSendWhatsAppPassword = (req: PasswordResetRequest, userPassword?: string) => {
+    const cleanUserPhone = req.phone.replace(/[^0-9]/g, '');
+    const targetPhone = cleanUserPhone.startsWith('880') ? cleanUserPhone : `88${cleanUserPhone}`;
+    const passwordToSend = userPassword || req.recoveredPassword || 'password123';
+    
+    const message = `*সম্মানিত ${req.name},*\nআসাদ কম্পিউটার অ্যান্ড ট্রেনিং সেন্টার থেকে আপনার অনুরোধ অনুযায়ী একাউন্ট পাসওয়ার্ড নিচে প্রদান করা হলো:\n━━━━━━━━━━━━━━━━━━\n👤 নাম: ${req.name}\n📌 একাউন্ট: ${req.role === 'student' ? 'কোর্স শিক্ষার্থী' : 'চাকুরী আবেদনকারী'}\n📱 লগইন আইডি / মোবাইল: ${req.phone}\n🔑 পাসওয়ার্ড: ${passwordToSend}\n━━━━━━━━━━━━━━━━━━\nলগইন লিঙ্ক: https://asadcomputer.com\nযেকোনো প্রয়োজনে যোগাযোগ: 01773-733654। ধন্যবাদ!`;
+
+    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    handleMarkPasswordSent(req.id);
+  };
+
 
   // 1. Notice Control State (Fallbacks if props not passed)
   const defaultNotices: NoticeItem[] = [
@@ -797,7 +828,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span className="block font-medium">আইডি ও পাসওয়ার্ড</span>
                   <span className="block text-[10px] text-amber-400/90 font-mono">ভল্ট ({applicants.length + students.length})</span>
                 </div>
+                {passwordRequests.filter((r) => r.status === 'Pending').length > 0 && (
+                  <span className="bg-rose-500 text-white font-bold text-[10px] px-2 py-0.5 rounded-full animate-pulse shadow-xs" title="Pending Password Reset Requests">
+                    {passwordRequests.filter((r) => r.status === 'Pending').length}
+                  </span>
+                )}
               </button>
+
             </nav>
           </div>
 
@@ -1679,6 +1716,163 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </span>
                     </div>
                   </div>
+                </div>
+
+                {/* User Password Reset Requests Management Section */}
+                <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-stone-200">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-2 rounded-xl bg-rose-100 text-rose-700">
+                        <Key className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-stone-900 flex items-center space-x-2">
+                          <span>পাসওয়ার্ড রিকভারি আবেদনসমূহ (Password Reset Requests)</span>
+                          {passwordRequests.filter((r) => r.status === 'Pending').length > 0 && (
+                            <span className="bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                              {passwordRequests.filter((r) => r.status === 'Pending').length} টি নতুন
+                            </span>
+                          )}
+                        </h4>
+                        <p className="text-[11px] text-stone-500">
+                          ব্যবহারকারীরা পাসওয়ার্ড ভুলে গেলে যে রিকোয়েস্ট পাঠিয়েছে তা এখানে দেখতে পাবেন এবং সরাসরি মেসেজে পাসওয়ার্ড পাঠিয়ে দিতে পারবেন
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] font-semibold text-stone-600">
+                      মোট আবেদন: <span className="text-stone-900 font-bold">{passwordRequests.length}</span> টি
+                    </div>
+                  </div>
+
+                  {passwordRequests.length === 0 ? (
+                    <div className="py-8 text-center text-stone-500 text-xs">
+                      <div className="w-10 h-10 rounded-full bg-stone-100 text-stone-400 flex items-center justify-center mx-auto mb-2">
+                        <Check className="w-5 h-5 text-emerald-500" />
+                      </div>
+                      <p className="font-medium text-stone-700">বর্তমানে কোনো পেন্ডিং পাসওয়ার্ড রিকভারি রিকোয়েস্ট নেই।</p>
+                      <p className="text-[11px] text-stone-400 mt-0.5">ব্যবহারকারীরা লগইন পেজ থেকে "Forgot Password" সাবমিট করলে এখানে চলে আসবে এবং হোয়াটসঅ্যাপে বার্তা আসবে।</p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-3">
+                      {passwordRequests.map((req) => {
+                        let matchedPassword = req.recoveredPassword;
+
+                        if (req.role === 'student') {
+                          const s = students.find((st) => {
+                            const cleanP = (st.phone || '').replace(/[^0-9]/g, '');
+                            const reqP = (req.phone || '').replace(/[^0-9]/g, '');
+                            return (cleanP.length >= 8 && reqP.includes(cleanP)) || (req.identifier && st.rollNo.toLowerCase() === req.identifier.toLowerCase());
+                          });
+                          if (s) {
+                            matchedPassword = s.password || 'password123';
+                          }
+                        } else {
+                          const a = applicants.find((ap) => {
+                            const cleanP = (ap.phone || '').replace(/[^0-9]/g, '');
+                            const reqP = (req.phone || '').replace(/[^0-9]/g, '');
+                            return (cleanP.length >= 8 && reqP.includes(cleanP)) || (req.identifier && ap.email.toLowerCase() === req.identifier.toLowerCase());
+                          });
+                          if (a) {
+                            matchedPassword = a.password || 'applicantpass';
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={req.id}
+                            className={`p-4 rounded-xl border transition-all ${
+                              req.status === 'Pending'
+                                ? 'bg-amber-50/50 border-amber-200 shadow-xs'
+                                : 'bg-stone-50/70 border-stone-200 text-stone-600'
+                            }`}
+                          >
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-bold text-stone-900 text-sm">{req.name}</span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      req.role === 'student'
+                                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    }`}
+                                  >
+                                    {req.role === 'student' ? 'শিক্ষার্থী (Student)' : 'চাকুরী আবেদনকারী (Applicant)'}
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      req.status === 'Sent'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-amber-100 text-amber-800'
+                                    }`}
+                                  >
+                                    {req.status === 'Sent' ? 'পাসওয়ার্ড পাঠানো হয়েছে' : 'পেন্ডিং (Pending)'}
+                                  </span>
+                                  <span className="text-[10px] text-stone-400">তারিখ: {req.requestDate}</span>
+                                </div>
+
+                                <div className="text-xs text-stone-700 flex flex-wrap items-center gap-x-4 gap-y-1 pt-0.5">
+                                  <span>মোবাইল: <strong className="font-mono text-stone-900">{req.phone}</strong></span>
+                                  {req.identifier && <span>আইডি/রোল: <strong className="font-mono text-stone-900">{req.identifier}</strong></span>}
+                                  {req.courseOrJob && <span>কোর্স/পদ: <strong className="text-stone-900">{req.courseOrJob}</strong></span>}
+                                </div>
+
+                                {req.notes && (
+                                  <div className="text-[11px] text-stone-600 italic bg-white/70 p-1.5 rounded border border-stone-200 max-w-xl">
+                                    "{req.notes}"
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Password & Action Controls */}
+                              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                {matchedPassword && (
+                                  <div className="bg-white px-3 py-1.5 rounded-lg border border-amber-300 flex items-center space-x-2">
+                                    <span className="text-[10px] text-amber-900 font-bold uppercase">পাসওয়ার্ড:</span>
+                                    <code className="text-xs font-mono font-bold text-rose-600 select-all">{matchedPassword}</code>
+                                    <button
+                                      onClick={() => handleCopyText(matchedPassword!, `req-pass-${req.id}`)}
+                                      className="text-stone-400 hover:text-stone-700 p-0.5 cursor-pointer"
+                                      title="Copy Password"
+                                    >
+                                      <Copy className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+
+                                <button
+                                  onClick={() => handleSendWhatsAppPassword(req, matchedPassword)}
+                                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg flex items-center space-x-1.5 shadow-xs transition-colors cursor-pointer"
+                                  title="Send password directly to applicant on WhatsApp"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  <span>হোয়াটসঅ্যাপে পাসওয়ার্ড পাঠান</span>
+                                </button>
+
+                                {req.status === 'Pending' ? (
+                                  <button
+                                    onClick={() => handleMarkPasswordSent(req.id)}
+                                    className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs rounded-lg font-semibold transition-colors cursor-pointer border border-stone-300"
+                                  >
+                                    মার্ক Sent
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleDeletePasswordRequest(req.id)}
+                                    className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Delete Request"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Main Credentials Table Container */}

@@ -17,6 +17,7 @@ import {
 import { UniversitySeal } from './UniversitySeal.tsx';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData.ts';
 import { StudentAccount } from '../types.ts';
+import { savePersistentStudents, loadPersistentStudents } from '../utils/storageManager.ts';
 
 interface AdmissionFormModalProps {
   isOpen: boolean;
@@ -190,7 +191,37 @@ export const AdmissionFormModal: React.FC<AdmissionFormModalProps> = ({
       typingSpeed: 'Course in progress',
       attendance: '100%',
       status: 'Active',
+      fatherName: formData.fatherName.trim(),
+      motherName: formData.motherName.trim(),
+      birthDate: formData.birthDate,
+      gender: formData.gender,
+      presentDistrict: formData.presentDistrict,
+      presentUpazila: formData.presentUpazila,
+      presentAddress: formData.presentAddress.trim(),
+      permanentDistrict: formData.permanentDistrict,
+      permanentUpazila: formData.permanentUpazila,
+      permanentAddress: formData.permanentAddress.trim(),
+      religion: formData.religion.trim(),
+      nationality: formData.nationality.trim(),
+      nidNumber: formData.nidNumber.trim(),
+      bloodGroup: formData.bloodGroup.trim(),
+      occupation: formData.occupation.trim(),
+      maritalStatus: formData.maritalStatus,
+      photoUrl: photoPreview || undefined,
+      signatureUrl: signaturePreview || undefined,
+      admissionDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
     };
+
+    // Permanently write to persistent storage keys immediately for absolute reliability
+    try {
+      const persisted = loadPersistentStudents([]);
+      const filtered = persisted.filter(
+        (s) => s.phone.replace(/[^0-9]/g, '') !== cleanPhone && s.rollNo.toLowerCase() !== generatedRoll.toLowerCase()
+      );
+      savePersistentStudents([newStudent, ...filtered]);
+    } catch (err) {
+      console.warn('Storage sync error:', err);
+    }
 
     if (onRegisterStudent) {
       onRegisterStudent(newStudent);

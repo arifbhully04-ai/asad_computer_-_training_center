@@ -20,6 +20,9 @@ import {
   Send,
   Clock,
   Filter,
+  CreditCard,
+  Smartphone,
+  MessageCircle,
 } from 'lucide-react';
 import { ApplicantAccount, NoticeItem, JobApplication } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
@@ -27,6 +30,7 @@ import { ApplicantBioDataModal } from './ApplicantBioDataModal.tsx';
 import { ApplicationPermissionModal } from './ApplicationPermissionModal.tsx';
 import { JobPortalModal } from './JobPortalModal.tsx';
 import { ApplicationStatusBadge, isApplicationCompleted } from './ApplicationStatusBadge.tsx';
+import { PaymentModal, PaymentDetails } from './PaymentModal.tsx';
 
 interface ApplicantDashboardProps {
   onLogout: () => void;
@@ -39,6 +43,7 @@ interface ApplicantDashboardProps {
   onApplyJob?: (postName: string, circularTitle: string) => void;
   initialPendingCircular?: string | null;
   onClearInitialPendingCircular?: () => void;
+  onUpdateJobApplication?: (app: JobApplication) => void;
 }
 
 export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
@@ -52,6 +57,7 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
   onApplyJob,
   initialPendingCircular,
   onClearInitialPendingCircular,
+  onUpdateJobApplication,
 }) => {
   const [activeTab, setActiveTab] = useState<'applications' | 'notices'>('applications');
   const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'completed'>('all');
@@ -60,6 +66,11 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
   const [showBioDataModal, setShowBioDataModal] = useState(false);
   const [bioDataModalTab, setBioDataModalTab] = useState<'form' | 'copy'>('form');
   const [jobPortalModalOpen, setJobPortalModalOpen] = useState(false);
+
+  // Payment Modal State
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedAppForPayment, setSelectedAppForPayment] = useState<JobApplication | null>(null);
+  const [paymentToast, setPaymentToast] = useState<string | null>(null);
 
   // Application Permission & Post Name Modal State
   const [selectedCircularForApply, setSelectedCircularForApply] = useState<string | null>(null);
@@ -164,6 +175,40 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
     setShowBioDataModal(true);
   };
 
+  const handlePaymentSubmit = (details: PaymentDetails) => {
+    if (selectedAppForPayment) {
+      const updatedApp: JobApplication = {
+        ...selectedAppForPayment,
+        paymentMethod: details.paymentMethod,
+        senderPhone: details.senderPhone,
+        transactionId: details.transactionId,
+        feeAmount: details.amount,
+        paymentVerificationStatus: 'PendingVerification',
+        paymentSubmissionDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      };
+      if (onUpdateJobApplication) {
+        onUpdateJobApplication(updatedApp);
+      }
+      if (onUpdateApplicant) {
+        const updatedApps = (applicant.applications || []).map((a) =>
+          a.id === updatedApp.id ? updatedApp : a
+        );
+        onUpdateApplicant({
+          ...applicant,
+          paymentMethod: details.paymentMethod,
+          senderPhone: details.senderPhone,
+          transactionId: details.transactionId,
+          paymentVerificationStatus: 'PendingVerification',
+          applications: updatedApps.length > 0 ? updatedApps : [updatedApp],
+        });
+      }
+      setPaymentToast(
+        `পেমেন্ট তথ্য সাবমিট হয়েছে (TrxID: ${details.transactionId})। এডমিনের WhatsApp নম্বরে মেসেজ পাঠানো হয়েছে, এডমিন যাচাই সম্পন্ন করলে 'Paid' আপডেট হয়ে যাবে।`
+      );
+      setTimeout(() => setPaymentToast(null), 8000);
+    }
+  };
+
   return (
     <>
       <div className="min-h-screen bg-[#dce4f2] p-2 sm:p-4 md:p-6 lg:p-8 flex items-center justify-center font-sans antialiased">
@@ -222,9 +267,16 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                     <Briefcase className="w-4 h-4" />
                     <span>My Applications</span>
                   </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 font-bold">
-                    {displayApplications.length}
-                  </span>
+                  <div className="flex items-center space-x-1">
+                    {completedCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500 text-white font-bold animate-pulse shadow-2xs">
+                        ✓ {completedCount} সম্পন্ন
+                      </span>
+                    )}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 font-bold">
+                      {displayApplications.length}
+                    </span>
+                  </div>
                 </button>
 
                 <button
@@ -458,6 +510,11 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                 >
                   <Briefcase className="w-3.5 h-3.5" />
                   <span>আমার আবেদনসমূহ ({displayApplications.length})</span>
+                  {completedCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse shadow-2xs">
+                      🎉 {completedCount} সম্পন্ন
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -537,37 +594,149 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                     </div>
                   </div>
 
+                  {/* Payment Toast Notification */}
+                  {paymentToast && (
+                    <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs flex items-center justify-between shadow-xs">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-medium">{paymentToast}</span>
+                      </div>
+                      <button onClick={() => setPaymentToast(null)} className="text-emerald-700 hover:text-emerald-950 p-1">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Payment Information Notice Banner */}
+                  <div className="mb-4 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-pink-50 via-purple-50 to-orange-50 border border-pink-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 rounded-lg bg-pink-600 text-white shrink-0 shadow-xs">
+                        <Smartphone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-stone-900 text-xs sm:text-sm">
+                            অনলাইন আবেদন ফি পেমেন্ট (Send Money)
+                          </span>
+                          <span className="text-[10px] font-bold text-pink-700 bg-pink-100 px-2 py-0.5 rounded-full">
+                            bKash / Nagad / Rocket
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-700 mt-1 leading-relaxed">
+                          বিকাশ ও রকেট: <strong className="font-mono text-stone-900">01773733654</strong> · নগদ: <strong className="font-mono text-stone-900">01864399871</strong> নম্বরে আবেদন ফি (৳২২০) সেন্ড মানি করুন। পেমেন্ট শেষে ট্রানজেকশন আইডি ও মোবাইল নম্বর সাবমিট দিন। এডমিন চেক করে পেইড করে দেবে।
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notification Banner for Admin Completed Applications */}
+                  {completedCount > 0 && (
+                    <div className="mb-4 p-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-emerald-400/40 animate-in fade-in duration-300">
+                      <div className="flex items-start sm:items-center space-x-3">
+                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 shadow-inner">
+                          <CheckCircle className="w-6 h-6 text-emerald-200" />
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-sm sm:text-base">
+                              🎉 অভিনন্দন! আপনার {completedCount} টি আবেদন সফলভাবে 'সম্পন্ন' (Completed) হয়েছে!
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-emerald-800 shadow-2xs uppercase">
+                              Approved
+                            </span>
+                          </div>
+                          <p className="text-xs text-emerald-100 mt-0.5 leading-relaxed">
+                            এডমিন আপনার আবেদনটি সফলভাবে সম্পন্ন করেছেন। নিচে 'সম্পন্ন' ব্যাজ চিহ্নিত আবেদনটির অফিসিয়াল কপি বা এডমিট কার্ড ডাউনলোড ও প্রিন্ট করতে পারবেন।
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 self-end sm:self-auto shrink-0">
+                        <button
+                          onClick={() => setStatusFilter('completed')}
+                          className="px-3.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-900 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                        >
+                          শুধুমাত্র সম্পন্ন আবেদন ({completedCount})
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {filteredApps.length > 0 ? (
                     <div className="space-y-3">
-                      {filteredApps.map((app) => (
-                        <div
-                          key={`app-card-${app.id}`}
-                          className="bg-white p-4 sm:p-5 rounded-xl shadow-xs border border-stone-200 hover:shadow-sm transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
-                        >
-                          <div className="flex items-start space-x-3.5 flex-1 min-w-0">
-                            <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                              <FileText className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h5 className="font-bold text-stone-900 text-sm truncate">
-                                {app.circularTitle}
-                              </h5>
-                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
-                                <span className="px-2.5 py-0.5 rounded-md font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                  আবেদিত পদ: {app.postName}
-                                </span>
-                                <span className="font-mono text-stone-600 font-medium">
-                                  {app.rollNo}
-                                </span>
-                                <span className="text-stone-400">·</span>
-                                <span className="text-stone-500">{app.appliedDate}</span>
-                                <span className="text-stone-400">·</span>
-                                <span className="text-emerald-700 font-semibold">{app.feeStatus} (৳{app.feeAmount})</span>
+                      {filteredApps.map((app) => {
+                        const isCompleted = isApplicationCompleted(app.admitStatus);
+                        return (
+                          <div
+                            key={`app-card-${app.id}`}
+                            className={`p-4 sm:p-5 rounded-xl shadow-xs transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs ${
+                              isCompleted
+                                ? 'bg-gradient-to-r from-emerald-50/60 via-white to-white border-2 border-emerald-400 shadow-emerald-500/10'
+                                : 'bg-white border border-stone-200 hover:shadow-sm'
+                            }`}
+                          >
+                            <div className="flex items-start space-x-3.5 flex-1 min-w-0">
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                                isCompleted ? 'bg-emerald-600 text-white' : 'bg-stone-700 text-white'
+                              }`}>
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                {/* Clear UI Notification Badge directly above application title */}
+                                {isCompleted ? (
+                                  <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                                    <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white shadow-2xs animate-pulse">
+                                      <CheckCircle className="w-3 h-3 text-white" />
+                                      <span>🎉 সম্পন্ন (Admin Completed & Approved)</span>
+                                    </span>
+                                    <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200">
+                                      ✓ চূড়ান্ত কপি ও এডমিট কার্ড প্রস্তুত
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-2xs">
+                                      <Clock className="w-3 h-3 text-white" />
+                                      <span>⏳ প্রক্রিয়াধীন (Processing)</span>
+                                    </span>
+                                    <span className="text-[10px] text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-200">
+                                      এডমিন যাচাই চলছে
+                                    </span>
+                                  </div>
+                                )}
+
+                                <h5 className="font-bold text-stone-900 text-sm truncate">
+                                  {app.circularTitle}
+                                </h5>
+                                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+                                  <span className="px-2.5 py-0.5 rounded-md font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    আবেদিত পদ: {app.postName}
+                                  </span>
+                                  <span className="font-mono text-stone-600 font-medium">
+                                    {app.rollNo}
+                                  </span>
+                                  <span className="text-stone-400">·</span>
+                                  <span className="text-stone-500">{app.appliedDate}</span>
+                                  <span className="text-stone-400">·</span>
+                                  {app.feeStatus === 'Paid' ? (
+                                    <span className="font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 flex items-center space-x-1">
+                                      <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                      <span>Paid (৳{app.feeAmount || 220})</span>
+                                    </span>
+                                  ) : app.paymentVerificationStatus === 'PendingVerification' ? (
+                                    <span className="font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 flex items-center space-x-1">
+                                      <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
+                                      <span>যাচাই প্রক্রিয়াধীন (TrxID: {app.transactionId})</span>
+                                    </span>
+                                  ) : (
+                                    <span className="font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded border border-rose-300">
+                                      ফি বাকি (Pending ৳{app.feeAmount || 220})
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="flex flex-wrap items-center gap-3 self-end sm:self-auto">
+                          <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-auto">
                             {/* Color-Coded Processing vs Completed Badge */}
                             <ApplicationStatusBadge
                               status={app.admitStatus}
@@ -575,17 +744,42 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
                               showSubtext={true}
                             />
 
+                            {/* Pay / Update Payment Button */}
+                            {app.feeStatus !== 'Paid' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAppForPayment(app);
+                                  setPaymentModalOpen(true);
+                                }}
+                                className={`px-3 py-2 rounded-lg font-bold text-xs flex items-center space-x-1.5 transition-all shadow-xs cursor-pointer ${
+                                  app.paymentVerificationStatus === 'PendingVerification'
+                                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                                    : 'bg-gradient-to-r from-[#E2136E] to-[#E85D04] hover:opacity-90 text-white shadow-sm'
+                                }`}
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span>
+                                  {app.paymentVerificationStatus === 'PendingVerification'
+                                    ? 'পেমেন্ট TrxID পরিবর্তন'
+                                    : 'অনলাইন ফি দিন (৳' + (app.feeAmount || 220) + ')'}
+                                </span>
+                              </button>
+                            )}
+
                             <button
+                              type="button"
                               onClick={() => handleOpenCopyForApplication(app)}
-                              className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg transition-colors flex items-center space-x-1 cursor-pointer border border-stone-300 self-start"
+                              className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg transition-colors flex items-center space-x-1 cursor-pointer border border-stone-300"
                             >
                               <Printer className="w-3.5 h-3.5 text-blue-600" />
-                              <span>Applicant Copy (কপি দেখুন)</span>
+                              <span>Applicant Copy (কপি)</span>
                             </button>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
+                  </div>
                   ) : (
                     <div className="bg-white p-6 sm:p-8 rounded-2xl border border-dashed border-stone-300 text-center space-y-3">
                       <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100">
@@ -811,6 +1005,23 @@ export const ApplicantDashboard: React.FC<ApplicantDashboardProps> = ({
           setJobPortalModalOpen(false);
           handleStartApply(circularTitle);
         }}
+      />
+
+      {/* Online Payment Modal (bKash / Nagad / Rocket Send Money & WhatsApp Verification) */}
+      <PaymentModal
+        isOpen={paymentModalOpen}
+        onClose={() => {
+          setPaymentModalOpen(false);
+          setSelectedAppForPayment(null);
+        }}
+        title="চাকুরী আবেদন ফি পরিশোধ (Online Fee Payment)"
+        userType="applicant"
+        userName={applicant.applicantName || 'Applicant'}
+        userPhone={applicant.phone || ''}
+        userRollOrRef={selectedAppForPayment?.rollNo || applicant.rollNo || 'APP-ACTC'}
+        amount={selectedAppForPayment?.feeAmount || 220}
+        itemTitle={selectedAppForPayment ? `${selectedAppForPayment.circularTitle} (${selectedAppForPayment.postName})` : 'চাকুরী আবেদন ফি'}
+        onPaymentSubmit={handlePaymentSubmit}
       />
     </>
   );

@@ -17,6 +17,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { StudentAccount, ApplicantAccount } from '../types.ts';
+import { loadPersistentStudents } from '../utils/storageManager.ts';
 
 export type LoginRole = 'student' | 'applicant' | 'institute';
 
@@ -206,24 +207,32 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       return;
     }
 
-    // B. STUDENT LOGIN
+    // B. STUDENT LOGIN (Login ID = Admission Mobile Number, Password = Admission Set Password)
     if (role === 'student') {
-      const found = students.find(
-        (s) =>
-          (cleanPhoneQuery.length >= 8 && s.phone.replace(/[^0-9]/g, '').includes(cleanPhoneQuery)) ||
-          s.rollNo.toLowerCase() === query ||
-          (s.email && s.email.toLowerCase() === query) ||
-          (s.phone && s.phone.toLowerCase() === query)
-      );
+      const allStudents = students && students.length > 0 ? students : loadPersistentStudents([]);
+      const cleanInputDigits = emailOrId.replace(/[^0-9]/g, '');
+      const inputTrimmed = emailOrId.trim().toLowerCase();
+
+      const found = allStudents.find((s) => {
+        const sPhoneDigits = (s.phone || '').replace(/[^0-9]/g, '');
+        const isPhoneMatch =
+          cleanInputDigits.length >= 8 &&
+          (sPhoneDigits === cleanInputDigits ||
+            sPhoneDigits.endsWith(cleanInputDigits) ||
+            cleanInputDigits.endsWith(sPhoneDigits));
+        const isRollMatch = s.rollNo && s.rollNo.trim().toLowerCase() === inputTrimmed;
+        const isEmailMatch = s.email && s.email.trim().toLowerCase() === inputTrimmed;
+        return isPhoneMatch || isRollMatch || isEmailMatch;
+      });
 
       if (!found) {
-        setErrorMessage('এই মোবাইল নম্বর বা রোল দিয়ে কোনো স্টুডেন্ট অ্যাকাউন্ট পাওয়া যায়নি! কোর্সে ভর্তি ফরম পূরণ করার সময় যে মোবাইল নম্বর দিয়েছেন তা দিয়ে লগইন করুন।');
+        setErrorMessage('এই মোবাইল নম্বর বা রোল দিয়ে কোনো স্টুডেন্ট অ্যাকাউন্ট পাওয়া যায়নি! কোর্সে ভর্তি ফরম পূরণ করার সময় যে মোবাইল নম্বর দিয়েছেন (১১ সংখ্যা) তা দিয়ে চেষ্টা করুন।');
         return;
       }
 
       const validPass = found.password || 'password123';
-      if (password !== validPass) {
-        setErrorMessage('ভুল পাসওয়ার্ড! ভর্তি ফরমে যে পাসওয়ার্ড সেট করেছিলেন তা প্রদান করুন।');
+      if (password.trim() !== validPass.trim()) {
+        setErrorMessage('ভুল পাসওয়ার্ড! কোর্সের ভর্তি ফরমে যে পাসওয়ার্ড সেট করেছিলেন তা সঠিকভাবে প্রদান করুন।');
         return;
       }
 

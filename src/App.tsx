@@ -446,7 +446,12 @@ export default function App() {
 
   // Helper function to clean phone for checking
   function cleanPhone(p?: string) {
-    return p ? p.replace(/[^0-9]/g, '') : '';
+    if (!p) return '';
+    let digits = p.replace(/[^0-9]/g, '');
+    if (digits.startsWith('880')) {
+      digits = digits.slice(2);
+    }
+    return digits;
   }
 
   // Restore whole database from backup JSON file
@@ -480,8 +485,9 @@ export default function App() {
       circularTitle: circularTitle,
       postName: postName,
       appliedDate: today,
-      feeStatus: 'Paid',
+      feeStatus: 'Pending',
       feeAmount: 220,
+      paymentVerificationStatus: 'None',
       admitStatus: 'Processing', // <-- CRITICAL: Strictly 'Processing' (প্রক্রিয়াধীন) upon application!
       status: 'Processing',
       rollNo: newRoll,
@@ -492,6 +498,8 @@ export default function App() {
         rollNo: newRoll,
         refNo: newRef,
         appliedDate: today,
+        feeStatus: 'Pending',
+        paymentVerificationStatus: 'None',
         admitStatus: 'Processing',
         status: 'Processing',
       },
@@ -504,8 +512,9 @@ export default function App() {
       jobTitle: postName,
       rollNo: newRoll,
       refNo: newRef,
-      feeStatus: 'Paid',
+      feeStatus: 'Pending',
       feeAmount: 220,
+      paymentVerificationStatus: 'None',
       admitStatus: 'Processing', // <-- STRICTLY 'Processing'
       status: 'Processing',
       appliedDate: today,
@@ -606,15 +615,18 @@ export default function App() {
   };
 
   const [selectedJobTitleForLogin, setSelectedJobTitleForLogin] = useState<string | undefined>(undefined);
+  const [initialEmailOrIdForLogin, setInitialEmailOrIdForLogin] = useState<string | undefined>(undefined);
 
   const handleOpenLogin = (
     role: LoginRole = 'applicant',
     mode: 'login' | 'register' = 'login',
-    jobTitle?: string
+    jobTitle?: string,
+    initialEmailOrId?: string
   ) => {
     setLoginRole(role);
     setLoginMode(mode);
     setSelectedJobTitleForLogin(jobTitle);
+    setInitialEmailOrIdForLogin(initialEmailOrId);
     setJobPortalOpen(false); // Close JobPortalModal if open so LoginModal is in focus
     setLoginModalOpen(true);
   };
@@ -658,6 +670,7 @@ export default function App() {
         onBackToHome={() => setCurrentView('home')}
         studentData={currentStudent}
         notices={notices.filter((n) => n.category === 'Student' || n.category === 'General')}
+        onUpdateStudent={handleUpdateStudent}
       />
     );
   }
@@ -671,6 +684,7 @@ export default function App() {
         onOpenJobPortal={() => setJobPortalOpen(true)}
         applicantData={currentApplicant}
         onUpdateApplicant={handleUpdateApplicant}
+        onUpdateJobApplication={handleUpdateJobApplication}
         notices={notices}
         jobApplications={jobApplications}
         onApplyJob={handleApplyJob}
@@ -758,6 +772,7 @@ export default function App() {
         initialRole={loginRole}
         initialMode={loginMode}
         initialJobTitle={selectedJobTitleForLogin}
+        initialEmailOrId={initialEmailOrIdForLogin}
         students={students}
         applicants={applicants}
         onRegisterApplicant={handleAddApplicant}
@@ -784,11 +799,19 @@ export default function App() {
         onOpenAdmission={() => setAdmissionModalOpen(true)}
       />
 
-      {/* Official Admission Form Modal */}
+      {/* Official Admission Form Modal with Persistent Registration & Password Setup */}
       <AdmissionFormModal
         isOpen={admissionModalOpen}
         onClose={() => setAdmissionModalOpen(false)}
         defaultCourse="Computer Office Application"
+        onRegisterStudent={handleAddStudent}
+        onDirectLogin={(student) => {
+          setCurrentStudentId(student.id);
+          setCurrentView('student-dashboard');
+        }}
+        onOpenStudentLogin={(phoneOrRoll) => {
+          handleOpenLogin('student', 'login', undefined, phoneOrRoll);
+        }}
       />
 
       {/* General Information Modal for CTAs and Navigation items */}

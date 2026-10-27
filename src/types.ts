@@ -32,6 +32,15 @@ export interface NoticeItem {
   pdfName?: string;
 }
 
+export interface StudentPaymentRecord {
+  id?: string;
+  date: string;
+  amount: number;
+  method: string;
+  note?: string;
+  trxId?: string;
+}
+
 export interface StudentAccount {
   id: number;
   name: string;
@@ -48,6 +57,32 @@ export interface StudentAccount {
   typingSpeed: string;
   attendance: string;
   status: 'Active' | 'Certified' | 'Dropped';
+  fatherName?: string;
+  motherName?: string;
+  birthDate?: string;
+  gender?: string;
+  presentDistrict?: string;
+  presentUpazila?: string;
+  presentAddress?: string;
+  permanentDistrict?: string;
+  permanentUpazila?: string;
+  permanentAddress?: string;
+  religion?: string;
+  nationality?: string;
+  nidNumber?: string;
+  bloodGroup?: string;
+  occupation?: string;
+  maritalStatus?: string;
+  photoUrl?: string;
+  signatureUrl?: string;
+  admissionDate?: string;
+  paymentMethod?: 'bKash' | 'Nagad' | 'Rocket' | 'Cash';
+  senderPhone?: string;
+  transactionId?: string;
+  pendingPaymentAmount?: number;
+  paymentSubmissionDate?: string;
+  paymentVerificationStatus?: 'Verified' | 'PendingVerification' | 'None';
+  paymentHistory?: StudentPaymentRecord[];
 }
 
 export interface EducationRecord {
@@ -111,6 +146,11 @@ export interface ApplicantAccount {
   rollNo?: string;
   isAccountCompleted?: boolean;
   applications?: JobApplication[];
+  paymentMethod?: 'bKash' | 'Nagad' | 'Rocket';
+  senderPhone?: string;
+  transactionId?: string;
+  paymentSubmissionDate?: string;
+  paymentVerificationStatus?: 'Verified' | 'PendingVerification' | 'None';
 }
 
 export interface JobApplication {
@@ -130,4 +170,9 @@ export interface JobApplication {
   rollNo: string;
   refNo: string;
   bioDataSnapshot?: ApplicantAccount;
+  paymentMethod?: 'bKash' | 'Nagad' | 'Rocket';
+  senderPhone?: string;
+  transactionId?: string;
+  paymentSubmissionDate?: string;
+  paymentVerificationStatus?: 'Verified' | 'PendingVerification' | 'None';
 }

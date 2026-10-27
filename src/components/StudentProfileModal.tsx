@@ -57,11 +57,20 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!isNaN(amount) && amount > 0) {
       const newPaid = formData.paidFee + amount;
       const newDue = Math.max(0, formData.totalFee - newPaid);
+      const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      const record = {
+        id: `PAY-${Date.now()}`,
+        date: today,
+        amount: amount,
+        method: 'Office Desk (ক্যাশ)',
+        note: 'Admin payment entry',
+      };
       setFormData({
         ...formData,
         paidFee: newPaid,
         dueFee: newDue,
-        lastPaymentDate: 'Today (Admin Updated)',
+        lastPaymentDate: today,
+        paymentHistory: [...(formData.paymentHistory || []), record],
       });
       setAddPaymentAmount('');
     }
@@ -214,13 +223,62 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           </div>
 
           {/* Section 2: Fee Accounting (Total Fee, Paid Fee, Due Fee) */}
-          <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200">
-            <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider mb-3 flex items-center space-x-1.5">
+          <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
+            <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center space-x-1.5">
               <DollarSign className="w-4 h-4 text-amber-700" />
               <span>Student Fee Accounting (ফি হিসাব)</span>
             </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            {/* Pending Online Payment Alert */}
+            {formData.paymentVerificationStatus === 'PendingVerification' && (
+              <div className="p-3 bg-amber-100 border border-amber-300 rounded-lg text-xs space-y-2">
+                <div className="font-bold text-amber-950 flex items-center justify-between">
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping"></span>
+                    <span>অনলাইন পেমেন্ট পেন্ডিং রিকোয়েস্ট</span>
+                  </span>
+                  <span className="font-mono text-emerald-800 font-extrabold text-sm">৳{formData.pendingPaymentAmount || formData.dueFee}</span>
+                </div>
+                <div className="text-stone-700 grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
+                  <div>মাধ্যম: <strong>{formData.paymentMethod || 'bKash'} (Send Money)</strong></div>
+                  <div>প্রেরক নম্বর: <strong className="font-mono">{formData.senderPhone || formData.phone}</strong></div>
+                  <div className="sm:col-span-2">
+                    TrxID: <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-amber-300 text-amber-900">{formData.transactionId}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const amt = formData.pendingPaymentAmount || formData.dueFee || 0;
+                    const newPaid = formData.paidFee + amt;
+                    const newDue = Math.max(0, formData.totalFee - newPaid);
+                    const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const record = {
+                      id: `PAY-${Date.now()}`,
+                      date: today,
+                      amount: amt,
+                      method: formData.paymentMethod || 'Online (bKash/Nagad/Rocket)',
+                      note: `অনলাইন পেমেন্ট ভেরিফিকেশন (TrxID: ${formData.transactionId || 'N/A'})`,
+                      trxId: formData.transactionId,
+                    };
+                    setFormData({
+                      ...formData,
+                      paidFee: newPaid,
+                      dueFee: newDue,
+                      paymentVerificationStatus: 'Verified',
+                      pendingPaymentAmount: undefined,
+                      lastPaymentDate: today,
+                      paymentHistory: [...(formData.paymentHistory || []), record],
+                    });
+                  }}
+                  className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded cursor-pointer text-xs shadow-2xs"
+                >
+                  ✓ পেমেন্ট ভেরিফাই ও পেইড হিসাবে জমা করুন (৳{formData.pendingPaymentAmount || formData.dueFee})
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-white p-3 rounded-lg border border-amber-200">
                 <label className="block text-[11px] font-semibold text-stone-500 mb-1">Total Course Fee</label>
                 <div className="flex items-center space-x-1">

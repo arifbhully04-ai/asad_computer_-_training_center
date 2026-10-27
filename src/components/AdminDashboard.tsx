@@ -31,7 +31,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
-import { NoticeItem, StudentAccount, ApplicantAccount, JobApplication } from '../types.ts';
+import { NoticeItem, StudentAccount, ApplicantAccount, JobApplication, StudentPaymentRecord } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 import { StudentProfileModal } from './StudentProfileModal.tsx';
 import { ApplicantProfileModal } from './ApplicantProfileModal.tsx';
@@ -226,6 +226,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newStudentFee, setNewStudentFee] = useState<number>(4000);
   const [newStudentPaid, setNewStudentPaid] = useState<number>(1500);
 
+  // Quick Student Payment Modal State
+  const [selectedStudentForQuickPay, setSelectedStudentForQuickPay] = useState<StudentAccount | null>(null);
+  const [quickPayAmount, setQuickPayAmount] = useState<string>('');
+  const [quickPayMethod, setQuickPayMethod] = useState<'Cash' | 'bKash' | 'Nagad' | 'Rocket'>('Cash');
+  const [quickPayReceipt, setQuickPayReceipt] = useState<string>('');
+  const [quickPayNote, setQuickPayNote] = useState<string>('');
+
   // 3. Applicant Control State
   const defaultApplicants: ApplicantAccount[] = [];
 
@@ -391,6 +398,103 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     onUpdateJobApplication?.(updated);
   };
+
+  const handleApproveJobAppPayment = (app: JobApplication) => {
+    const updated: JobApplication = {
+      ...app,
+      feeStatus: 'Paid',
+      paymentVerificationStatus: 'Verified',
+      bioDataSnapshot: app.bioDataSnapshot
+        ? {
+            ...app.bioDataSnapshot,
+            feeStatus: 'Paid',
+            paymentVerificationStatus: 'Verified',
+          }
+        : undefined,
+    };
+    onUpdateJobApplication?.(updated);
+    setAdminStatusToast(`পেমেন্ট অনুমোদিত! ${app.applicantName}-এর ${app.postName} পদের ফি 'Paid (পরিশোধিত)' হিসেবে আপডেট হয়েছে।`);
+    setTimeout(() => {
+      setAdminStatusToast(null);
+    }, 4500);
+  };
+
+  const handleApproveStudentPayment = (student: StudentAccount) => {
+    const amountToCredit = student.pendingPaymentAmount || student.dueFee || 0;
+    const newPaidFee = student.paidFee + amountToCredit;
+    const newDueFee = Math.max(0, student.totalFee - newPaidFee);
+    const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const paymentRecord: StudentPaymentRecord = {
+      id: `PAY-${Date.now()}`,
+      date: today,
+      amount: amountToCredit,
+      method: student.paymentMethod ? `${student.paymentMethod} (অনলাইন)` : 'bKash / Nagad / Rocket',
+      note: `অনলাইন পেমেন্ট অনুমোদন (TrxID: ${student.transactionId || 'N/A'})`,
+      trxId: student.transactionId,
+    };
+
+    const updated: StudentAccount = {
+      ...student,
+      paidFee: newPaidFee,
+      dueFee: newDueFee,
+      lastPaymentDate: today,
+      paymentVerificationStatus: 'Verified',
+      pendingPaymentAmount: undefined,
+      paymentHistory: [...(student.paymentHistory || []), paymentRecord],
+    };
+
+    handleSaveStudentFromModal(updated);
+    setAdminStatusToast(`শিক্ষার্থী ${student.name}-এর ৳${amountToCredit} ফি অনুমোদন করা হয়েছে! বর্তমান বকেয়া: ৳${newDueFee}। স্টুডেন্ট প্রোফাইলে এটি তৎক্ষণাৎ আপডেট হয়েছে।`);
+    setTimeout(() => {
+      setAdminStatusToast(null);
+    }, 4500);
+  };
+
+  const handleQuickStudentPaymentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudentForQuickPay) return;
+    const amount = parseFloat(quickPayAmount);
+    if (isNaN(amount) || amount <= 0) return;
+
+    const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const newPaidFee = selectedStudentForQuickPay.paidFee + amount;
+    const newDueFee = Math.max(0, selectedStudentForQuickPay.totalFee - newPaidFee);
+
+    const paymentRecord: StudentPaymentRecord = {
+      id: `PAY-${Date.now()}`,
+      date: today,
+      amount: amount,
+      method: quickPayMethod === 'Cash' ? 'অফিস ক্যাশ (Cash)' : `${quickPayMethod} (Send Money)`,
+      note: quickPayNote.trim() || 'অফিস কাউন্টার পেমেন্ট এন্ট্রি',
+      trxId: quickPayReceipt.trim() || undefined,
+    };
+
+    const updated: StudentAccount = {
+      ...selectedStudentForQuickPay,
+      paidFee: newPaidFee,
+      dueFee: newDueFee,
+      lastPaymentDate: today,
+      paymentVerificationStatus: 'Verified',
+      paymentHistory: [...(selectedStudentForQuickPay.paymentHistory || []), paymentRecord],
+    };
+
+    handleSaveStudentFromModal(updated);
+    setAdminStatusToast(
+      `পেমেন্ট সফলভাবে এন্ট্রি হয়েছে! ${selectedStudentForQuickPay.name}-এর একাউন্টে ৳${amount} জমা হয়েছে। বর্তমান বকেয়া: ৳${newDueFee}। স্টুডেন্ট ড্যাশবোর্ড ও প্রোফাইলে এটি সাথে সাথে আপডেট হয়েছে।`
+    );
+    setSelectedStudentForQuickPay(null);
+    setQuickPayAmount('');
+    setQuickPayReceipt('');
+    setQuickPayNote('');
+    setTimeout(() => {
+      setAdminStatusToast(null);
+    }, 5000);
+  };
+
+  const pendingJobAppPaymentsCount = jobApplications.filter((a) => a.paymentVerificationStatus === 'PendingVerification').length;
+  const pendingStudentPaymentsCount = students.filter((s) => s.paymentVerificationStatus === 'PendingVerification').length;
+  const totalPendingPaymentsCount = pendingJobAppPaymentsCount + pendingStudentPaymentsCount;
 
   const adminProcessingCount = jobApplications.filter((a) => !isApplicationCompleted(a.admitStatus)).length;
   const adminCompletedCount = jobApplications.filter((a) => isApplicationCompleted(a.admitStatus)).length;
@@ -794,6 +898,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
+            {/* Pending Online Payments Alert Banner */}
+            {totalPendingPaymentsCount > 0 && (
+              <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-600 via-rose-600 to-orange-600 text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-300">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5 text-white animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm sm:text-base flex items-center space-x-2">
+                      <span>নতুন অনলাইন পেমেন্ট সাবমিশন জমা পড়েছে ({totalPendingPaymentsCount} টি)</span>
+                    </h4>
+                    <p className="text-xs text-white/90 mt-0.5">
+                      বিকাশ/রকেট: <strong>01773733654</strong> বা নগদ: <strong>01864399871</strong> স্টেটমেন্ট মিলিয়ে এক ক্লিকে অনুমোদন (Approve) করুন।
+                      {pendingJobAppPaymentsCount > 0 && ` চাকুরীর আবেদন: ${pendingJobAppPaymentsCount} টি।`}
+                      {pendingStudentPaymentsCount > 0 && ` শিক্ষার্থী কোর্স ফি: ${pendingStudentPaymentsCount} জন।`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 self-end sm:self-auto shrink-0">
+                  {pendingJobAppPaymentsCount > 0 && (
+                    <button
+                      onClick={() => {
+                        setActiveTab('applicants');
+                        setApplicantSubTab('applications');
+                      }}
+                      className="px-3 py-1.5 bg-white text-stone-900 rounded-lg font-bold text-xs shadow-xs hover:bg-stone-100 transition-colors cursor-pointer"
+                    >
+                      আবেদনসমূহ দেখুন ({pendingJobAppPaymentsCount})
+                    </button>
+                  )}
+                  {pendingStudentPaymentsCount > 0 && (
+                    <button
+                      onClick={() => setActiveTab('students')}
+                      className="px-3 py-1.5 bg-stone-900 text-white rounded-lg font-bold text-xs shadow-xs hover:bg-stone-800 transition-colors cursor-pointer"
+                    >
+                      শিক্ষার্থী ফি দেখুন ({pendingStudentPaymentsCount})
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* VIEW A: NOTICE CONTROL (With PDF Upload & View/Download for everyone) */}
             {activeTab === 'notices' && (
               <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs mb-6">
@@ -949,7 +1095,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className="text-[10px] text-stone-400">{student.batch}</div>
                           </td>
                           <td className="p-3">
-                            <div className="space-y-0.5">
+                            <div className="space-y-1">
                               <div className="text-[11px]">
                                 Total: <strong>৳{student.totalFee}</strong>
                               </div>
@@ -967,6 +1113,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   </span>
                                 )}
                               </div>
+
+                              {/* Online Payment Pending Verification */}
+                              {student.paymentVerificationStatus === 'PendingVerification' && (
+                                <div className="mt-2 p-2 bg-amber-50 border border-amber-300 rounded-lg text-[10px] text-amber-950 space-y-1 shadow-2xs">
+                                  <div className="font-bold text-amber-900 flex items-center space-x-1">
+                                    <Clock className="w-3 h-3 text-amber-600 animate-pulse" />
+                                    <span>অনলাইন পেমেন্ট পেন্ডিং</span>
+                                  </div>
+                                  <div>
+                                    জমা রিকোয়েস্ট: <strong className="text-emerald-800 font-bold">৳{student.pendingPaymentAmount || student.dueFee}</strong>
+                                  </div>
+                                  <div>
+                                    মাধ্যম: <strong>{student.paymentMethod || 'bKash'}</strong>
+                                  </div>
+                                  <div>
+                                    প্রেরক ফোন: <strong className="font-mono">{student.senderPhone || student.phone}</strong>
+                                  </div>
+                                  <div>
+                                    TrxID: <span className="font-mono font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded">{student.transactionId}</span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleApproveStudentPayment(student)}
+                                    className="w-full mt-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] flex items-center justify-center space-x-1 shadow-2xs cursor-pointer transition-colors"
+                                    title="বিকাশ/নগদে টাকা পেয়ে থাকলে অনুমোদন করুন"
+                                  >
+                                    <CheckCircle className="w-3 h-3 text-white" />
+                                    <span>অনুমোদন করুন (Approve)</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {student.paymentVerificationStatus === 'Verified' && student.transactionId && (
+                                <div className="text-[9px] text-stone-500 font-mono mt-0.5">
+                                  ✓ TrxID: {student.transactionId} ({student.paymentMethod || 'Online'})
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="p-3 font-mono text-stone-700 font-medium">
@@ -982,7 +1164,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               {student.status}
                             </span>
                           </td>
-                          <td className="p-3 text-right space-x-1.5">
+                          <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                            {/* Quick Add Payment Button */}
+                            <button
+                              onClick={() => {
+                                setSelectedStudentForQuickPay(student);
+                                setQuickPayAmount(student.dueFee > 0 ? String(Math.min(student.dueFee, 1000)) : '500');
+                                setQuickPayMethod('Cash');
+                                setQuickPayReceipt('');
+                                setQuickPayNote('');
+                              }}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[11px] transition-colors cursor-pointer inline-flex items-center space-x-1 shadow-2xs"
+                              title="কোর্স ফি পেমেন্ট এন্ট্রি করুন (Add Payment)"
+                            >
+                              <DollarSign className="w-3 h-3 text-emerald-100" />
+                              <span>+ ফি এন্ট্রি</span>
+                            </button>
+
                             {/* Edit Profile & Password Modal Trigger */}
                             <button
                               onClick={() => setSelectedStudentForEdit(student)}
@@ -1158,17 +1356,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   {app.appliedDate}
                                 </td>
                                 <td className="p-3">
-                                  <button
-                                    onClick={() => handleToggleJobAppFeeStatus(app)}
-                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
-                                      app.feeStatus === 'Paid'
-                                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                        : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
-                                    }`}
-                                    title="Click to toggle Paid/Pending"
-                                  >
-                                    {app.feeStatus} (৳{app.feeAmount})
-                                  </button>
+                                  <div className="space-y-1">
+                                    <button
+                                      onClick={() => handleToggleJobAppFeeStatus(app)}
+                                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                                        app.feeStatus === 'Paid'
+                                          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                          : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                                      }`}
+                                      title="Click to toggle Paid/Pending"
+                                    >
+                                      {app.feeStatus} (৳{app.feeAmount})
+                                    </button>
+
+                                    {/* Verification Pending Details */}
+                                    {app.paymentVerificationStatus === 'PendingVerification' && (
+                                      <div className="p-2 bg-amber-50 border border-amber-300 rounded-lg text-[10px] text-amber-950 space-y-1 shadow-2xs min-w-[140px]">
+                                        <div className="font-bold text-amber-900 flex items-center space-x-1">
+                                          <Clock className="w-3 h-3 text-amber-600 animate-pulse" />
+                                          <span>যাচাই প্রক্রিয়াধীন</span>
+                                        </div>
+                                        <div>
+                                          মাধ্যম: <strong>{app.paymentMethod || 'bKash'}</strong>
+                                        </div>
+                                        <div>
+                                          প্রেরক: <strong className="font-mono">{app.senderPhone || app.phone}</strong>
+                                        </div>
+                                        <div>
+                                          TrxID: <span className="font-mono font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded">{app.transactionId}</span>
+                                        </div>
+                                        <button
+                                          onClick={() => handleApproveJobAppPayment(app)}
+                                          className="w-full mt-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] flex items-center justify-center space-x-1 shadow-2xs cursor-pointer transition-colors"
+                                          title="বিকাশ/নগদে টাকা পেয়ে থাকলে পেইড হিসেবে অনুমোদন করুন"
+                                        >
+                                          <CheckCircle className="w-3 h-3 text-white" />
+                                          <span>পেমেন্ট অনুমোদন (Mark Paid)</span>
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {app.paymentVerificationStatus === 'Verified' && app.transactionId && (
+                                      <div className="text-[9px] text-stone-500 font-mono">
+                                        ✓ TrxID: {app.transactionId} ({app.paymentMethod || 'Online'})
+                                      </div>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-3 bg-amber-50/30">
                                   {/* Clear Color-Coded Status Badge with Quick Action Button */}
@@ -1265,17 +1498,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </span>
                             </td>
                             <td className="p-3">
-                              <button
-                                onClick={() => handleToggleFeeStatus(app)}
-                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
-                                  app.feeStatus === 'Paid'
-                                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                    : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
-                                }`}
-                                title="Click to toggle Paid/Pending"
-                              >
-                                {app.feeStatus} (৳{app.feeAmount})
-                              </button>
+                              <div className="space-y-1">
+                                <button
+                                  onClick={() => handleToggleFeeStatus(app)}
+                                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                                    app.feeStatus === 'Paid'
+                                      ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                      : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                                  }`}
+                                  title="Click to toggle Paid/Pending"
+                                >
+                                  {app.feeStatus} (৳{app.feeAmount})
+                                </button>
+                                {app.paymentVerificationStatus === 'PendingVerification' && (
+                                  <div className="p-1.5 bg-amber-50 border border-amber-300 rounded text-[10px] text-amber-950 space-y-0.5">
+                                    <div className="font-bold text-amber-900">যাচাই পেন্ডিং</div>
+                                    <div>মাধ্যম: <strong>{app.paymentMethod || 'bKash'}</strong></div>
+                                    <div>ফোন: <span className="font-mono">{app.senderPhone || app.phone}</span></div>
+                                    <div>TrxID: <span className="font-mono font-bold bg-amber-100 px-1 rounded">{app.transactionId}</span></div>
+                                    <button
+                                      onClick={() => {
+                                        const updated: ApplicantAccount = {
+                                          ...app,
+                                          feeStatus: 'Paid',
+                                          paymentVerificationStatus: 'Verified',
+                                        };
+                                        handleSaveApplicantFromModal(updated);
+                                        setAdminStatusToast(`প্রার্থী ${app.applicantName}-এর ফি অনুমোদিত ও পেইড মার্ক করা হয়েছে।`);
+                                        setTimeout(() => setAdminStatusToast(null), 4500);
+                                      }}
+                                      className="w-full mt-1 px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[9px] cursor-pointer"
+                                    >
+                                      পেমেন্ট অনুমোদন (Mark Paid)
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="p-3">
                               <ApplicationStatusBadge
@@ -2115,6 +2373,158 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setSelectedApplicantForBioData(updated);
         }}
       />
+
+      {/* Quick Student Payment Entry Modal */}
+      {selectedStudentForQuickPay && (
+        <div
+          className="fixed inset-0 z-60 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setSelectedStudentForQuickPay(null)}
+        >
+          <div
+            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <DollarSign className="w-5 h-5 text-emerald-300" />
+                <div>
+                  <h3 className="font-bold text-base">শিক্ষার্থী কোর্স ফি জমা এন্ট্রি (Enter Payment)</h3>
+                  <p className="text-[11px] text-emerald-100">
+                    {selectedStudentForQuickPay.name} · Roll: {selectedStudentForQuickPay.rollNo}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStudentForQuickPay(null)}
+                className="text-white/80 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleQuickStudentPaymentSubmit} className="p-6 space-y-4 text-xs">
+              {/* Fee Snapshot */}
+              <div className="grid grid-cols-3 gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-center">
+                <div>
+                  <span className="text-[10px] text-stone-500 block">মোট কোর্স ফি</span>
+                  <span className="font-bold text-stone-900 font-mono text-sm">৳{selectedStudentForQuickPay.totalFee}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-emerald-700 block font-semibold">পূর্বে পরিশোধিত</span>
+                  <span className="font-bold text-emerald-700 font-mono text-sm">৳{selectedStudentForQuickPay.paidFee}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-rose-700 block font-semibold">বর্তমান বকেয়া</span>
+                  <span className="font-bold text-rose-700 font-mono text-sm">৳{selectedStudentForQuickPay.dueFee}</span>
+                </div>
+              </div>
+
+              {/* Payment Amount */}
+              <div>
+                <label className="block font-bold text-stone-800 mb-1">
+                  নতুন জমা টাকার পরিমাণ (৳) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-stone-500 text-sm">৳</span>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g. 1000"
+                    value={quickPayAmount}
+                    onChange={(e) => setQuickPayAmount(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2.5 bg-stone-50 border border-stone-300 rounded-xl outline-none focus:border-emerald-500 font-mono text-base font-bold text-emerald-800"
+                  />
+                </div>
+                <div className="flex items-center space-x-2 mt-1.5">
+                  <span className="text-[10px] text-stone-400">কুইক সিলেক্ট:</span>
+                  {[500, 1000, 1500, 2000, selectedStudentForQuickPay.dueFee].filter(v => v > 0).slice(0, 4).map((amt, idx) => (
+                    <button
+                      key={`quick-amt-${idx}`}
+                      type="button"
+                      onClick={() => setQuickPayAmount(String(amt))}
+                      className="px-2 py-0.5 bg-stone-100 hover:bg-emerald-100 text-stone-700 hover:text-emerald-900 rounded font-bold font-mono text-[10px] border border-stone-200 cursor-pointer"
+                    >
+                      ৳{amt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Payment Method */}
+              <div>
+                <label className="block font-bold text-stone-800 mb-1">পেমেন্ট মাধ্যম (Payment Method)</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['Cash', 'bKash', 'Nagad', 'Rocket'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setQuickPayMethod(m)}
+                      className={`py-2 rounded-lg font-bold text-xs border text-center transition-all cursor-pointer ${
+                        quickPayMethod === m
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                          : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                      }`}
+                    >
+                      {m === 'Cash' ? 'ক্যাশ (Cash)' : m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* TrxID / Receipt Slip No */}
+              <div>
+                <label className="block font-semibold text-stone-700 mb-1">
+                  রশিদ / মানি রিসিট নং অথবা TrxID (ঐচ্ছিক)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. REC-2026-042 বা TrxID"
+                  value={quickPayReceipt}
+                  onChange={(e) => setQuickPayReceipt(e.target.value)}
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl outline-none font-mono"
+                />
+              </div>
+
+              {/* Note / Remarks */}
+              <div>
+                <label className="block font-semibold text-stone-700 mb-1">নোট / মন্তব্য (ঐচ্ছিক)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ২য় কিস্তি পরিশোধ / অফিশিয়াল ক্যাশ কাউন্টার জমা"
+                  value={quickPayNote}
+                  onChange={(e) => setQuickPayNote(e.target.value)}
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl outline-none"
+                />
+              </div>
+
+              <div className="pt-2 text-[11px] text-stone-500 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                * পেমেন্ট সেভ করার সাথে সাথে শিক্ষার্থীর একাউন্টে মোট জমা ও বকেয়া হিসাব আপডেট হয়ে যাবে এবং শিক্ষার্থী তার প্রোফাইলে এই জমার মানি রিসিট দেখতে পাবে।
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudentForQuickPay(null)}
+                  className="px-4 py-2 border border-stone-300 text-stone-600 rounded-xl font-medium hover:bg-stone-50 cursor-pointer"
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>পেমেন্ট সেভ করুন (Save Payment)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

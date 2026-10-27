@@ -42,10 +42,14 @@ const SESSION_STORAGE_KEYS = [
   'actc_session',
 ];
 
-// Helper to normalize phone numbers for deduplication
+// Helper to normalize phone numbers for deduplication and matching
 const cleanPhone = (p?: string): string => {
   if (!p) return '';
-  return p.replace(/[^0-9]/g, '');
+  let digits = p.replace(/[^0-9]/g, '');
+  if (digits.startsWith('880')) {
+    digits = digits.slice(2);
+  }
+  return digits;
 };
 
 /**

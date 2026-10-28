@@ -30,6 +30,27 @@ export interface NoticeItem {
   urgent?: boolean;
   pdfUrl?: string;
   pdfName?: string;
+  feeAmount?: number; // আবেদন ফি (টাকা)
+  remarks?: string; // মন্তব্য / ফি সংক্রান্ত বিবরণ
+}
+
+export interface StudentTestimonial {
+  id: number;
+  nameBn: string;
+  nameEn: string;
+  courseBn: string;
+  courseEn: string;
+  batchBn: string;
+  batchEn: string;
+  roleBn: string;
+  roleEn: string;
+  storyBn: string;
+  storyEn: string;
+  rating?: number;
+  workplaceBn?: string;
+  workplaceEn?: string;
+  avatarUrl?: string;
+  isFeatured?: boolean;
 }
 
 export interface StudentPaymentRecord {
@@ -175,6 +196,7 @@ export interface JobApplication {
   transactionId?: string;
   paymentSubmissionDate?: string;
   paymentVerificationStatus?: 'Verified' | 'PendingVerification' | 'None';
+  remarks?: string; // সার্কুলারের মন্তব্য / ফি সংক্রান্ত তথ্য
 }
 
 export interface PasswordResetRequest {
@@ -189,4 +211,25 @@ export interface PasswordResetRequest {
   status: 'Pending' | 'Sent' | 'Resolved';
   recoveredPassword?: string;
 }
+
+export interface AdminCredentials {
+  username: string;
+  password: string;
+  updatedAt?: string;
+  adminName?: string;
+}
+
+export interface WebsiteSeoConfig {
+  metaTitle: string;
+  metaDescription: string;
+  metaKeywords: string;
+  author?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  canonicalUrl?: string;
+  robots?: string;
+  lastUpdated?: string;
+}
+
+
 

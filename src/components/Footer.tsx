@@ -1,18 +1,21 @@
 import React from 'react';
 import { MapPin, Phone, Mail, MessageCircle, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { UniversitySeal } from './UniversitySeal.tsx';
+import { BangladeshPostLogo } from './BangladeshPostLogo.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface FooterProps {
   onSelectNavItem?: (item: string, details?: string) => void;
   onOpenCourseModal?: () => void;
   onOpenAdmission?: () => void;
+  onOpenOnlineServices?: (serviceId?: string) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onSelectNavItem,
   onOpenCourseModal,
   onOpenAdmission,
+  onOpenOnlineServices,
 }) => {
   const { trans, t, language } = useLanguage();
 
@@ -48,9 +51,16 @@ export const Footer: React.FC<FooterProps> = ({
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="flex items-center space-x-2 text-stone-400 text-xs pt-1">
-              <ShieldCheck className="w-4 h-4 text-[#C5A880] shrink-0" />
-              <span>{t('footerUnderPostOffice')}</span>
+            <div className="flex items-center space-x-2.5 p-2.5 rounded-xl bg-stone-900/90 border border-stone-800 text-stone-300 text-xs">
+              <BangladeshPostLogo size={32} />
+              <div className="flex flex-col">
+                <span className="font-bold text-white text-[11px] leading-tight">
+                  বাংলাদেশ ডাক বিভাগ অনুমোদিত
+                </span>
+                <span className="text-[10px] text-stone-400 leading-tight">
+                  Under Bangladesh Post Office Affiliated
+                </span>
+              </div>
             </div>
           </div>
 
@@ -87,7 +97,15 @@ export const Footer: React.FC<FooterProps> = ({
               </li>
               <li>
                 <button
-                  onClick={() => onSelectNavItem?.('Online Services')}
+                  onClick={() => onOpenOnlineServices?.('digital-land-services')}
+                  className="hover:text-emerald-400 text-emerald-300 font-bold transition-colors text-left cursor-pointer flex items-center space-x-1.5"
+                >
+                  <span>{trans('• Digital Land Services (All Land Work)', '• ডিজিটাল ভূমি সেবা (জমি সংক্রান্ত সকল কাজ)')}</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenOnlineServices?.('govt-job-applications')}
                   className="hover:text-white transition-colors text-left cursor-pointer"
                 >
                   {trans('• All Government & Private Job Applications', '• সকল সরকারি ও বেসরকারি চাকুরীর আবেদন')}
@@ -95,7 +113,7 @@ export const Footer: React.FC<FooterProps> = ({
               </li>
               <li>
                 <button
-                  onClick={() => onSelectNavItem?.('Online Services')}
+                  onClick={() => onOpenOnlineServices?.('university-college-admission')}
                   className="hover:text-white transition-colors text-left cursor-pointer"
                 >
                   {trans('• University & College Admission Forms', '• বিশ্ববিদ্যালয় ও কলেজ ভর্তি আবেদন')}
@@ -103,10 +121,18 @@ export const Footer: React.FC<FooterProps> = ({
               </li>
               <li>
                 <button
-                  onClick={() => onSelectNavItem?.('Online Services')}
+                  onClick={() => onOpenOnlineServices?.('epassport-visa-services')}
                   className="hover:text-white transition-colors text-left cursor-pointer"
                 >
                   {trans('• Passport, Visa, NID & Birth Registration', '• পাসপোর্ট, ভিসা, এনআইডি ও জন্ম নিবন্ধন')}
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenOnlineServices?.()}
+                  className="hover:text-amber-300 text-amber-400/90 font-medium transition-colors text-left cursor-pointer"
+                >
+                  {trans('• View All Online Services (Name Plates)', '• সকল অনলাইন সেবা দেখুন (নেম প্লেট)')}
                 </button>
               </li>
               <li>
@@ -115,6 +141,14 @@ export const Footer: React.FC<FooterProps> = ({
                   className="hover:text-[#C5A880] text-amber-300/80 transition-colors text-left font-medium block"
                 >
                   • {trans('Frequently Asked Questions (FAQ)', 'সচরাচর প্রশ্ন ও উত্তর (FAQ Section)')}
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#student-testimonials"
+                  className="hover:text-emerald-400 text-emerald-300/90 transition-colors text-left font-medium block"
+                >
+                  • {trans('Student Reviews & Success Stories', 'শিক্ষার্থীদের মতামত ও সাফল্য (Reviews)')}
                 </a>
               </li>
             </ul>

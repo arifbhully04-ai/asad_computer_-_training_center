@@ -34,6 +34,7 @@ interface PaymentModalProps {
   userRollOrRef: string;
   amount: number;
   itemTitle: string;
+  noticeRemarks?: string;
   onPaymentSubmit: (details: PaymentDetails) => void;
 }
 
@@ -47,6 +48,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   userRollOrRef,
   amount: defaultAmount,
   itemTitle,
+  noticeRemarks,
   onPaymentSubmit,
 }) => {
   const [selectedMethod, setSelectedMethod] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
@@ -310,6 +312,21 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <span className="text-lg font-black text-emerald-700 font-mono">৳ {amount}</span>
               </div>
             </div>
+
+            {/* Admin Notice Fee Remarks Display */}
+            {noticeRemarks && (
+              <div className="p-3.5 bg-amber-50/90 rounded-xl border border-amber-300 text-amber-950 flex items-start space-x-2.5 shadow-2xs">
+                <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-amber-900 block text-[11px] uppercase tracking-wide">
+                    এডমিন কর্তৃক নোটিশে উল্লেখিত আবেদন ফি ও মন্তব্য:
+                  </span>
+                  <p className="text-xs text-amber-800 font-medium leading-relaxed mt-0.5">
+                    {noticeRemarks}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Official Payment Numbers: bKash, Rocket, Nagad */}
             <div>

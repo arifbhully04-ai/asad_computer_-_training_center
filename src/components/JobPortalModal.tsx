@@ -17,6 +17,8 @@ import {
   CheckCircle,
   Clock,
   Sparkles,
+  CreditCard,
+  Info,
 } from 'lucide-react';
 import { NoticeItem, StudentAccount, ApplicantAccount } from '../types.ts';
 import { LoginRole, LoginModal } from './LoginModal.tsx';
@@ -407,6 +409,24 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
                               'Official notice published by Asad Computer & Training Center. All eligible candidates and students are instructed to follow the instructions.'}
                           </p>
                         </div>
+
+                        {/* Application Fee & Remarks Badges */}
+                        {(notice.feeAmount !== undefined || notice.remarks) && (
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            {notice.feeAmount !== undefined && (
+                              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold">
+                                <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>আবেদন ফি: ৳{notice.feeAmount}</span>
+                              </div>
+                            )}
+                            {notice.remarks && (
+                              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium">
+                                <Info className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>মন্তব্য: {notice.remarks}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* PDF Attachment Badge if uploaded */}
                         {notice.pdfName && (

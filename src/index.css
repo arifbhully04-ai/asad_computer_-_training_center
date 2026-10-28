@@ -2,15 +2,21 @@
 
 @layer base {
   body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'Hind Siliguri', 'Noto Sans Bengali', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     color: #1a1a1a;
     background-color: #ffffff;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
   }
 }
 
+.font-bengali {
+  font-family: 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif;
+}
+
 .font-serif-academic {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Playfair Display', 'Hind Siliguri', Georgia, serif;
 }
 
 .font-cinzel {
@@ -19,4 +25,13 @@
 
 .font-signature {
   font-family: 'Alex Brush', cursive;
+}
+
+/* Hide scrollbar for clean carousels and sliders */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

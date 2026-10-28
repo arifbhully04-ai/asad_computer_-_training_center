@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { X, Check, ArrowRight, Monitor, Award, Clock } from 'lucide-react';
+import { BangladeshPostLogo } from './BangladeshPostLogo.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface CourseModalProps {
@@ -66,9 +67,10 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 <Monitor className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[11px] uppercase tracking-wider font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {trans('Under Bangladesh Post Office', 'বাংলাদেশ ডাক বিভাগের আওতাধীন পরিচালিত')}
-                </span>
+                <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold">
+                  <BangladeshPostLogo size={18} />
+                  <span>{trans('Under Bangladesh Post Office', 'বাংলাদেশ ডাক বিভাগের আওতাধীন পরিচালিত')}</span>
+                </div>
                 <h4 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight mt-1">
                   {trans('Computer Office Application', 'কম্পিউটার অফিস অ্যাপ্লিকেশন')}
                 </h4>

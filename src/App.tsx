@@ -19,7 +19,11 @@ import { StudentDashboard } from './components/StudentDashboard.tsx';
 import { ApplicantDashboard } from './components/ApplicantDashboard.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { ApplicationPermissionModal } from './components/ApplicationPermissionModal.tsx';
-import { SlideData, ModalContent, NoticeItem, StudentAccount, ApplicantAccount, JobApplication } from './types.ts';
+import { OnlineServicesModal } from './components/OnlineServicesModal.tsx';
+import { OnlineServicesSection } from './components/OnlineServicesSection.tsx';
+import { StudentTestimonialSection } from './components/StudentTestimonialSection.tsx';
+import { FloatingWhatsAppButton } from './components/FloatingWhatsAppButton.tsx';
+import { SlideData, ModalContent, NoticeItem, StudentAccount, ApplicantAccount, JobApplication, StudentTestimonial, AdminCredentials, WebsiteSeoConfig } from './types.ts';
 import {
   loadPersistentApplicants,
   savePersistentApplicants,
@@ -33,6 +37,14 @@ import {
   savePersistentSession,
   downloadDatabaseBackupFile,
   restoreDatabaseFromBackup,
+  loadPersistentTestimonials,
+  savePersistentTestimonials,
+  DEFAULT_TESTIMONIALS,
+  loadPersistentAdminCredentials,
+  savePersistentAdminCredentials,
+  loadPersistentSeoConfig,
+  savePersistentSeoConfig,
+  applyWebsiteSeo,
 } from './utils/storageManager.ts';
 
 const defaultNoticesList: NoticeItem[] = [
@@ -294,6 +306,15 @@ export default function App() {
   const [admissionModalOpen, setAdmissionModalOpen] = useState(false);
   const [jobPortalOpen, setJobPortalOpen] = useState(false);
   
+  // Dedicated state for Online Services & Land Desk with Name-Plate UI
+  const [onlineServicesModalOpen, setOnlineServicesModalOpen] = useState(false);
+  const [selectedServiceIdForModal, setSelectedServiceIdForModal] = useState<string | null>(null);
+
+  const handleOpenOnlineServices = (serviceId?: string) => {
+    setSelectedServiceIdForModal(serviceId || null);
+    setOnlineServicesModalOpen(true);
+  };
+  
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginRole, setLoginRole] = useState<LoginRole>('applicant');
   const [loginMode, setLoginMode] = useState<'login' | 'register'>('login');
@@ -324,6 +345,26 @@ export default function App() {
   );
   const [pendingCircularForPermission, setPendingCircularForPermission] = useState<string | null>(null);
 
+  // Testimonials persisted across storage keys
+  const [testimonials, setTestimonials] = useState<StudentTestimonial[]>(() =>
+    loadPersistentTestimonials(DEFAULT_TESTIMONIALS)
+  );
+
+  // Admin Credentials persisted across storage keys
+  const [adminCredentials, setAdminCredentials] = useState<AdminCredentials>(() =>
+    loadPersistentAdminCredentials()
+  );
+
+  // Dynamic Website SEO Configuration persisted across storage keys
+  const [seoConfig, setSeoConfig] = useState<WebsiteSeoConfig>(() =>
+    loadPersistentSeoConfig()
+  );
+
+  // Immediately apply SEO and structured data to document head on mount and changes
+  useEffect(() => {
+    applyWebsiteSeo(seoConfig);
+  }, [seoConfig]);
+
   // Synchronize state changes to permanent storage
   useEffect(() => {
     savePersistentNotices(notices);
@@ -342,8 +383,58 @@ export default function App() {
   }, [jobApplications]);
 
   useEffect(() => {
+    savePersistentTestimonials(testimonials);
+  }, [testimonials]);
+
+  useEffect(() => {
+    savePersistentAdminCredentials(adminCredentials);
+  }, [adminCredentials]);
+
+  useEffect(() => {
+    savePersistentSeoConfig(seoConfig);
+  }, [seoConfig]);
+
+  useEffect(() => {
     savePersistentSession({ currentView, currentApplicantId, currentStudentId });
   }, [currentView, currentApplicantId, currentStudentId]);
+
+  // Handler for Admin Credentials update from Admin Panel
+  const handleUpdateAdminCredentials = (newCreds: AdminCredentials) => {
+    setAdminCredentials(newCreds);
+    savePersistentAdminCredentials(newCreds);
+  };
+
+  // Handler for Website SEO update from Admin Panel
+  const handleUpdateSeoConfig = (newSeo: WebsiteSeoConfig) => {
+    setSeoConfig(newSeo);
+    savePersistentSeoConfig(newSeo);
+    applyWebsiteSeo(newSeo);
+  };
+
+  // Handlers for Testimonials
+  const handleAddTestimonial = (testimonial: StudentTestimonial) => {
+    setTestimonials((prev) => {
+      const next = [testimonial, ...prev];
+      savePersistentTestimonials(next);
+      return next;
+    });
+  };
+
+  const handleUpdateTestimonial = (testimonial: StudentTestimonial) => {
+    setTestimonials((prev) => {
+      const next = prev.map((t) => (t.id === testimonial.id ? testimonial : t));
+      savePersistentTestimonials(next);
+      return next;
+    });
+  };
+
+  const handleDeleteTestimonial = (id: number) => {
+    setTestimonials((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      savePersistentTestimonials(next);
+      return next;
+    });
+  };
 
   // Handlers for Notices
   const handleAddNotice = (notice: NoticeItem) => {
@@ -462,6 +553,12 @@ export default function App() {
       if (res.students && res.students.length > 0) setStudents(res.students);
       if (res.jobApplications && res.jobApplications.length > 0) setJobApplications(res.jobApplications);
       if (res.notices && res.notices.length > 0) setNotices(res.notices);
+      if (res.testimonials && res.testimonials.length > 0) setTestimonials(res.testimonials);
+      if (res.adminCredentials) setAdminCredentials(res.adminCredentials);
+      if (res.seoConfig) {
+        setSeoConfig(res.seoConfig);
+        applyWebsiteSeo(res.seoConfig);
+      }
       return true;
     }
     return false;
@@ -558,16 +655,37 @@ export default function App() {
   };
 
   const handleSelectNavItem = (item: string, details?: string) => {
+    if (
+      item === 'Online Services' ||
+      item === 'onlineServices' ||
+      item === 'অনলাইন সেবা' ||
+      item === 'ডিজিটাল ভূমি সেবা'
+    ) {
+      handleOpenOnlineServices(item === 'ডিজিটাল ভূমি সেবা' ? 'digital-land-services' : undefined);
+      return;
+    }
+
+    if (
+      item === 'Testimonials' ||
+      item === 'Student Reviews' ||
+      item === 'মতামত' ||
+      item === 'শিক্ষার্থীর মতামত' ||
+      item === 'সাফল্যের গল্প' ||
+      item === 'রিভিউ'
+    ) {
+      const el = document.getElementById('student-testimonials');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+    }
+
     let customCategory = 'Asad Computer & Training Center';
     let customDescription =
       details ||
       `Information regarding ${item} at Asad Computer & Training Center. Our center is open for new admissions and immediate online application assistance.`;
 
-    if (item === 'Online Services') {
-      customCategory = 'Digital Services Desk';
-      customDescription =
-        'Complete online application support: Bangladesh Government Jobs (BPSC, NTRCA, Primary, Defense, Railway, Ministries), University & College Online Admissions, Passport & Visa Form Fill-up, NID & Birth Registration, Online Tax/e-TIN, Result Checking, Admit Card download, and document scanning & printing.';
-    } else if (item === 'Contact' || item === 'Contact & Location') {
+    if (item === 'Contact' || item === 'Contact & Location') {
       customCategory = 'Get In Touch';
       customDescription =
         'Address: Bottola, Bhully Bazar, Bhully, Thakurgaon. Mobile: 01773-733654, 01864-399871. WhatsApp: 01407-215416. Email: bhulli.postoffice@gmail.com. We are open 7 days a week for training and urgent application processing.';
@@ -588,10 +706,8 @@ export default function App() {
         // "EXPLORE COURSES" -> Opens Course modal (Computer Office Application -> Admission)
         setCourseModalOpen(true);
       } else {
-        handleSelectNavItem(
-          'Online Services',
-          'Our online desk facilitates government job circular applications, university admissions, passport form submission, NID corrections, and document verification services at Bottola, Bhully Bazar, Thakurgaon.'
-        );
+        // "ONLINE SERVICES" -> Opens Online Services Modal with Name Plates
+        handleOpenOnlineServices();
       }
     } else if (slide.id === 2) {
       if (type === 'programs') {
@@ -603,13 +719,11 @@ export default function App() {
       }
     } else {
       if (type === 'programs') {
-        // "GET ADMISSION" -> Opens Admission Form
-        setAdmissionModalOpen(true);
+        // "DIGITAL LAND SERVICES" -> Opens Digital Land Services name plate directly
+        handleOpenOnlineServices('digital-land-services');
       } else {
-        handleSelectNavItem(
-          'Contact & Location',
-          'Visit Asad Computer & Training Center at Bottola, Bhully Bazar, Bhully, Thakurgaon. Mobile: 01773-733654, 01864-399871, WhatsApp: 01407-215416.'
-        );
+        // "VIEW ALL SERVICES" -> Opens all online services
+        handleOpenOnlineServices();
       }
     }
   };
@@ -665,32 +779,38 @@ export default function App() {
   // If Student Dashboard is active
   if (currentView === 'student-dashboard') {
     return (
-      <StudentDashboard
-        onLogout={() => setCurrentView('home')}
-        onBackToHome={() => setCurrentView('home')}
-        studentData={currentStudent}
-        notices={notices.filter((n) => n.category === 'Student' || n.category === 'General')}
-        onUpdateStudent={handleUpdateStudent}
-      />
+      <>
+        <StudentDashboard
+          onLogout={() => setCurrentView('home')}
+          onBackToHome={() => setCurrentView('home')}
+          studentData={currentStudent}
+          notices={notices.filter((n) => n.category === 'Student' || n.category === 'General')}
+          onUpdateStudent={handleUpdateStudent}
+        />
+        <FloatingWhatsAppButton phoneNumber="01407-215416" />
+      </>
     );
   }
 
   // If Applicant Dashboard is active
   if (currentView === 'applicant-dashboard') {
     return (
-      <ApplicantDashboard
-        onLogout={() => setCurrentView('home')}
-        onBackToHome={() => setCurrentView('home')}
-        onOpenJobPortal={() => setJobPortalOpen(true)}
-        applicantData={currentApplicant}
-        onUpdateApplicant={handleUpdateApplicant}
-        onUpdateJobApplication={handleUpdateJobApplication}
-        notices={notices}
-        jobApplications={jobApplications}
-        onApplyJob={handleApplyJob}
-        initialPendingCircular={pendingCircularForPermission}
-        onClearInitialPendingCircular={() => setPendingCircularForPermission(null)}
-      />
+      <>
+        <ApplicantDashboard
+          onLogout={() => setCurrentView('home')}
+          onBackToHome={() => setCurrentView('home')}
+          onOpenJobPortal={() => setJobPortalOpen(true)}
+          applicantData={currentApplicant}
+          onUpdateApplicant={handleUpdateApplicant}
+          onUpdateJobApplication={handleUpdateJobApplication}
+          notices={notices}
+          jobApplications={jobApplications}
+          onApplyJob={handleApplyJob}
+          initialPendingCircular={pendingCircularForPermission}
+          onClearInitialPendingCircular={() => setPendingCircularForPermission(null)}
+        />
+        <FloatingWhatsAppButton phoneNumber="01407-215416" />
+      </>
     );
   }
 
@@ -700,6 +820,10 @@ export default function App() {
       <AdminDashboard
         onLogout={() => setCurrentView('home')}
         onBackToHome={() => setCurrentView('home')}
+        adminCredentials={adminCredentials}
+        onUpdateAdminCredentials={handleUpdateAdminCredentials}
+        seoConfig={seoConfig}
+        onUpdateSeoConfig={handleUpdateSeoConfig}
         notices={notices}
         onAddNotice={handleAddNotice}
         onDeleteNotice={handleDeleteNotice}
@@ -713,7 +837,11 @@ export default function App() {
         jobApplications={jobApplications}
         onUpdateJobApplication={handleUpdateJobApplication}
         onDeleteJobApplication={handleDeleteJobApplication}
-        onExportDatabase={() => downloadDatabaseBackupFile(applicants, students, jobApplications, notices)}
+        testimonials={testimonials}
+        onAddTestimonial={handleAddTestimonial}
+        onUpdateTestimonial={handleUpdateTestimonial}
+        onDeleteTestimonial={handleDeleteTestimonial}
+        onExportDatabase={() => downloadDatabaseBackupFile(applicants, students, jobApplications, notices, testimonials, adminCredentials, seoConfig)}
         onRestoreDatabase={handleRestoreDatabase}
       />
     );
@@ -728,6 +856,7 @@ export default function App() {
         onOpenAdmission={() => setAdmissionModalOpen(true)}
         onOpenJobPortal={() => setJobPortalOpen(true)}
         onOpenLogin={handleOpenLogin}
+        onOpenOnlineServices={handleOpenOnlineServices}
       />
 
       {/* Hero Carousel Section */}
@@ -742,7 +871,12 @@ export default function App() {
               'Asad Computer & Training Center was established at Bottola, Bhully Bazar, Bhully, Thakurgaon to bridge digital literacy gaps and provide swift, dependable e-services for all citizens and students.'
             )
           }
+          onOpenCourseModal={() => setCourseModalOpen(true)}
+          onOpenOnlineServices={handleOpenOnlineServices}
         />
+
+        {/* Online Services Showcase with Name-Plate UI/UX Design */}
+        <OnlineServicesSection onOpenOnlineServices={handleOpenOnlineServices} />
 
         {/* Common Questions & Answers / FAQ Section */}
         <FAQSection
@@ -756,6 +890,13 @@ export default function App() {
             )
           }
         />
+
+        {/* Student Testimonials & Success Stories Section */}
+        <StudentTestimonialSection
+          testimonials={testimonials}
+          onOpenAdmission={() => setAdmissionModalOpen(true)}
+          onOpenCourseModal={() => setCourseModalOpen(true)}
+        />
       </main>
 
       {/* Footer Section */}
@@ -763,6 +904,7 @@ export default function App() {
         onSelectNavItem={handleSelectNavItem}
         onOpenCourseModal={() => setCourseModalOpen(true)}
         onOpenAdmission={() => setAdmissionModalOpen(true)}
+        onOpenOnlineServices={handleOpenOnlineServices}
       />
 
       {/* Login Modal supporting Student Login, Applicant Login, Institute Login, and Applicant Registration */}
@@ -775,6 +917,7 @@ export default function App() {
         initialEmailOrId={initialEmailOrIdForLogin}
         students={students}
         applicants={applicants}
+        adminCredentials={adminCredentials}
         onRegisterApplicant={handleAddApplicant}
         onLoginSuccess={handleLoginSuccess}
       />
@@ -814,12 +957,22 @@ export default function App() {
         }}
       />
 
+      {/* Dedicated Online Services & Digital Land Desk with Executive Name-Plate UI/UX Design */}
+      <OnlineServicesModal
+        isOpen={onlineServicesModalOpen}
+        onClose={() => setOnlineServicesModalOpen(false)}
+        initialServiceId={selectedServiceIdForModal}
+      />
+
       {/* General Information Modal for CTAs and Navigation items */}
       <InfoModal
         isOpen={modalOpen}
         content={modalContent}
         onClose={() => setModalOpen(false)}
       />
+
+      {/* Floating WhatsApp Quick Inquiries Desk */}
+      <FloatingWhatsAppButton phoneNumber="01407-215416" />
     </div>
   );
 }

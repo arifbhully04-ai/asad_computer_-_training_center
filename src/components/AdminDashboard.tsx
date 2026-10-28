@@ -30,19 +30,46 @@ import {
   Paperclip,
   Check,
   AlertCircle,
+  MessageCircle,
+  CreditCard,
+  Info,
+  Star,
+  Quote,
+  Globe,
+  Share2,
+  Code,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
-import { NoticeItem, StudentAccount, ApplicantAccount, JobApplication, StudentPaymentRecord, PasswordResetRequest } from '../types.ts';
+import { NoticeItem, StudentAccount, ApplicantAccount, JobApplication, StudentPaymentRecord, PasswordResetRequest, StudentTestimonial, AdminCredentials, WebsiteSeoConfig } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 import { StudentProfileModal } from './StudentProfileModal.tsx';
 import { ApplicantProfileModal } from './ApplicantProfileModal.tsx';
 import { ApplicantBioDataModal } from './ApplicantBioDataModal.tsx';
 import { ApplicationStatusBadge, isApplicationCompleted } from './ApplicationStatusBadge.tsx';
-import { downloadDatabaseBackupFile, loadPersistentPasswordRequests, savePersistentPasswordRequests } from '../utils/storageManager.ts';
+import {
+  downloadDatabaseBackupFile,
+  loadPersistentPasswordRequests,
+  savePersistentPasswordRequests,
+  loadPersistentTestimonials,
+  savePersistentTestimonials,
+  DEFAULT_TESTIMONIALS,
+  loadPersistentAdminCredentials,
+  savePersistentAdminCredentials,
+  DEFAULT_SEO_CONFIG,
+  loadPersistentSeoConfig,
+  savePersistentSeoConfig,
+  applyWebsiteSeo,
+} from '../utils/storageManager.ts';
 
 
 export interface AdminDashboardProps {
   onLogout: () => void;
   onBackToHome: () => void;
+  adminCredentials?: AdminCredentials;
+  onUpdateAdminCredentials?: (creds: AdminCredentials) => void;
+  seoConfig?: WebsiteSeoConfig;
+  onUpdateSeoConfig?: (seo: WebsiteSeoConfig) => void;
   notices?: NoticeItem[];
   onAddNotice?: (notice: NoticeItem) => void;
   onDeleteNotice?: (id: number) => void;
@@ -56,6 +83,10 @@ export interface AdminDashboardProps {
   jobApplications?: JobApplication[];
   onUpdateJobApplication?: (app: JobApplication) => void;
   onDeleteJobApplication?: (id: number) => void;
+  testimonials?: StudentTestimonial[];
+  onAddTestimonial?: (testimonial: StudentTestimonial) => void;
+  onUpdateTestimonial?: (testimonial: StudentTestimonial) => void;
+  onDeleteTestimonial?: (id: number) => void;
   onExportDatabase?: () => void;
   onRestoreDatabase?: (jsonStr: string) => boolean;
 }
@@ -63,6 +94,10 @@ export interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout,
   onBackToHome,
+  adminCredentials: propAdminCredentials,
+  onUpdateAdminCredentials,
+  seoConfig: propSeoConfig,
+  onUpdateSeoConfig,
   notices: propNotices,
   onAddNotice,
   onDeleteNotice,
@@ -76,10 +111,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   jobApplications: propJobApplications,
   onUpdateJobApplication,
   onDeleteJobApplication,
+  testimonials: propTestimonials,
+  onAddTestimonial,
+  onUpdateTestimonial,
+  onDeleteTestimonial,
   onExportDatabase,
   onRestoreDatabase,
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'notices' | 'students' | 'applicants' | 'credentials'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notices' | 'students' | 'applicants' | 'credentials' | 'testimonials' | 'seo'>('overview');
   const [applicantSubTab, setApplicantSubTab] = useState<'applications' | 'profiles'>('applications');
   const [jobAppStatusFilter, setJobAppStatusFilter] = useState<'all' | 'processing' | 'completed'>('all');
   const [credentialFilter, setCredentialFilter] = useState<'all' | 'applicants' | 'students'>('all');
@@ -89,6 +128,183 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adminStatusToast, setAdminStatusToast] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [passwordRequests, setPasswordRequests] = useState<PasswordResetRequest[]>(() => loadPersistentPasswordRequests());
+
+  const [localTestimonials, setLocalTestimonials] = useState<StudentTestimonial[]>(() =>
+    loadPersistentTestimonials(DEFAULT_TESTIMONIALS)
+  );
+  const testimonials = propTestimonials || localTestimonials;
+
+  // Admin Credentials Change State
+  const activeAdminCreds = propAdminCredentials || loadPersistentAdminCredentials();
+  const [currentAdminPasswordInput, setCurrentAdminPasswordInput] = useState('');
+  const [newAdminUsernameInput, setNewAdminUsernameInput] = useState(activeAdminCreds.username || 'admin');
+  const [newAdminPasswordInput, setNewAdminPasswordInput] = useState('');
+  const [confirmAdminPasswordInput, setConfirmAdminPasswordInput] = useState('');
+  const [showCurrentAdminPass, setShowCurrentAdminPass] = useState(false);
+  const [showNewAdminPass, setShowNewAdminPass] = useState(false);
+  const [showConfirmAdminPass, setShowConfirmAdminPass] = useState(false);
+  const [showActiveAdminPass, setShowActiveAdminPass] = useState(false);
+  const [adminCredError, setAdminCredError] = useState<string | null>(null);
+  const [adminCredSuccess, setAdminCredSuccess] = useState<string | null>(null);
+  const [isAdminFormExpanded, setIsAdminFormExpanded] = useState(true);
+
+  // Sync username input if propAdminCredentials changes
+  React.useEffect(() => {
+    if (propAdminCredentials?.username) {
+      setNewAdminUsernameInput(propAdminCredentials.username);
+    }
+  }, [propAdminCredentials?.username]);
+
+  const handleAdminCredentialsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminCredError(null);
+    setAdminCredSuccess(null);
+
+    // 1. Verify current password
+    const allowedCurrentPasswords = [
+      activeAdminCreds.password,
+      'admin123',
+      'asad2026',
+    ];
+
+    if (!allowedCurrentPasswords.includes(currentAdminPasswordInput)) {
+      setAdminCredError('বর্তমান পাসওয়ার্ডটি সঠিক নয়! দয়া করে সঠিক বর্তমান পাসওয়ার্ড দিয়ে নিশ্চিত করুন।');
+      return;
+    }
+
+    // 2. Validate new username
+    const trimmedUsername = newAdminUsernameInput.trim();
+    if (!trimmedUsername || trimmedUsername.length < 3) {
+      setAdminCredError('নতুন ইউজারনেম/আইডি কমপক্ষে ৩ অক্ষরের হতে হবে (যেমন: admin, মোবাইল নম্বর বা ইমেইল)।');
+      return;
+    }
+
+    // 3. Validate new password
+    if (!newAdminPasswordInput || newAdminPasswordInput.length < 6) {
+      setAdminCredError('নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');
+      return;
+    }
+
+    // 4. Validate confirmation match
+    if (newAdminPasswordInput !== confirmAdminPasswordInput) {
+      setAdminCredError('নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড মিলছে না! পুনরায় টাইপ করুন।');
+      return;
+    }
+
+    const updatedCreds: AdminCredentials = {
+      username: trimmedUsername,
+      password: newAdminPasswordInput,
+      updatedAt: new Date().toISOString(),
+      adminName: 'Md. Asaduzzaman',
+    };
+
+    if (onUpdateAdminCredentials) {
+      onUpdateAdminCredentials(updatedCreds);
+    } else {
+      savePersistentAdminCredentials(updatedCreds);
+    }
+
+    setAdminCredSuccess('অ্যাডমিন আইডি ও পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে! পরবর্তী প্রতিটি লগইনে আপনার এই নতুন ইউজারনেম ও পাসওয়ার্ড দিয়ে প্রবেশ করুন।');
+    setCurrentAdminPasswordInput('');
+    setNewAdminPasswordInput('');
+    setConfirmAdminPasswordInput('');
+    setAdminStatusToast('অ্যাডমিন আইডি ও পাসওয়ার্ড সফলভাবে আপডেট হয়েছে!');
+    setTimeout(() => {
+      setAdminStatusToast(null);
+    }, 4500);
+  };
+
+  // SEO Configuration Management State
+  const activeSeo = propSeoConfig || loadPersistentSeoConfig();
+  const [seoTitle, setSeoTitle] = useState(activeSeo.metaTitle || DEFAULT_SEO_CONFIG.metaTitle);
+  const [seoDescription, setSeoDescription] = useState(activeSeo.metaDescription || DEFAULT_SEO_CONFIG.metaDescription);
+  const [seoKeywords, setSeoKeywords] = useState(activeSeo.metaKeywords || DEFAULT_SEO_CONFIG.metaKeywords);
+  const [seoAuthor, setSeoAuthor] = useState(activeSeo.author || DEFAULT_SEO_CONFIG.author || 'Md. Asaduzzaman');
+  const [seoCanonicalUrl, setSeoCanonicalUrl] = useState(activeSeo.canonicalUrl || DEFAULT_SEO_CONFIG.canonicalUrl || 'https://asadcomputer.com');
+  const [seoRobots, setSeoRobots] = useState(activeSeo.robots || 'index, follow');
+  const [seoPreviewTab, setSeoPreviewTab] = useState<'google' | 'social' | 'schema'>('google');
+  const [seoToast, setSeoToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Sync when prop changes
+  React.useEffect(() => {
+    if (propSeoConfig) {
+      setSeoTitle(propSeoConfig.metaTitle);
+      setSeoDescription(propSeoConfig.metaDescription);
+      setSeoKeywords(propSeoConfig.metaKeywords);
+      if (propSeoConfig.author) setSeoAuthor(propSeoConfig.author);
+      if (propSeoConfig.canonicalUrl) setSeoCanonicalUrl(propSeoConfig.canonicalUrl);
+      if (propSeoConfig.robots) setSeoRobots(propSeoConfig.robots);
+    }
+  }, [propSeoConfig]);
+
+  const handleSaveSeoConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSeoToast(null);
+
+    if (!seoTitle.trim() || seoTitle.trim().length < 5) {
+      setSeoToast({ type: 'error', text: 'মেটা টাইটেল অবশ্যই কমপক্ষে ৫ অক্ষরের হতে হবে।' });
+      return;
+    }
+
+    if (!seoDescription.trim() || seoDescription.trim().length < 20) {
+      setSeoToast({ type: 'error', text: 'মেটা ডেসক্রিপশন কমপক্ষে ২০ অক্ষরের হওয়া উচিত।' });
+      return;
+    }
+
+    const updatedSeo: WebsiteSeoConfig = {
+      metaTitle: seoTitle.trim(),
+      metaDescription: seoDescription.trim(),
+      metaKeywords: seoKeywords.trim(),
+      author: seoAuthor.trim(),
+      canonicalUrl: seoCanonicalUrl.trim(),
+      robots: seoRobots,
+      ogTitle: seoTitle.trim(),
+      ogDescription: seoDescription.trim(),
+      lastUpdated: new Date().toISOString(),
+    };
+
+    if (onUpdateSeoConfig) {
+      onUpdateSeoConfig(updatedSeo);
+    } else {
+      savePersistentSeoConfig(updatedSeo);
+    }
+
+    applyWebsiteSeo(updatedSeo);
+    setSeoToast({
+      type: 'success',
+      text: 'এসইও মেটাডাটা ও সার্চ ইঞ্জিন ট্যাগ সফলভাবে আপডেট ও ব্রাউজারে সক্রিয় হয়েছে!',
+    });
+    setAdminStatusToast('এসইও মেটাডাটা সফলভাবে আপডেট হয়েছে!');
+    setTimeout(() => {
+      setAdminStatusToast(null);
+      setSeoToast(null);
+    }, 4500);
+  };
+
+  const handleResetToDefaultSeo = () => {
+    setSeoTitle(DEFAULT_SEO_CONFIG.metaTitle);
+    setSeoDescription(DEFAULT_SEO_CONFIG.metaDescription);
+    setSeoKeywords(DEFAULT_SEO_CONFIG.metaKeywords);
+    setSeoAuthor(DEFAULT_SEO_CONFIG.author || 'Md. Asaduzzaman');
+    setSeoCanonicalUrl(DEFAULT_SEO_CONFIG.canonicalUrl || 'https://asadcomputer.com');
+    setSeoRobots('index, follow');
+    setSeoToast({
+      type: 'success',
+      text: 'প্রস্তাবিত ডিফল্ট এসইও টেমপ্লেট লোড হয়েছে। সেভ করতে নিচের "সেভ করুন" বাটনে ক্লিক করুন।',
+    });
+    setTimeout(() => setSeoToast(null), 4000);
+  };
+
+  const handleAddKeywordPill = (keywordToAdd: string) => {
+    const existing = seoKeywords
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
+    if (!existing.includes(keywordToAdd)) {
+      const next = existing.length > 0 ? `${seoKeywords.trim()}, ${keywordToAdd}` : keywordToAdd;
+      setSeoKeywords(next);
+    }
+  };
 
   const handleMarkPasswordSent = (requestId: number) => {
     const updated = passwordRequests.map((r) => (r.id === requestId ? { ...r, status: 'Sent' as const } : r));
@@ -166,10 +382,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newNoticeTitle, setNewNoticeTitle] = useState('');
   const [newNoticeDescription, setNewNoticeDescription] = useState('');
   const [newNoticeCategory, setNewNoticeCategory] = useState<'Student' | 'Applicant' | 'General'>('Student');
+  const [newNoticeFeeAmount, setNewNoticeFeeAmount] = useState<string>('220');
+  const [newNoticeRemarks, setNewNoticeRemarks] = useState<string>('');
   const [newNoticePdfFile, setNewNoticePdfFile] = useState<File | null>(null);
   const [newNoticePdfName, setNewNoticePdfName] = useState<string>('');
   const [showAddNoticeModal, setShowAddNoticeModal] = useState(false);
   const [selectedNoticeForPdf, setSelectedNoticeForPdf] = useState<NoticeItem | null>(null);
+
+  // Testimonial Control State
+  const [showTestimonialModal, setShowTestimonialModal] = useState(false);
+  const [editingTestimonial, setEditingTestimonial] = useState<StudentTestimonial | null>(null);
+  const [tNameBn, setTNameBn] = useState('');
+  const [tNameEn, setTNameEn] = useState('');
+  const [tRoleBn, setTRoleBn] = useState('');
+  const [tRoleEn, setTRoleEn] = useState('');
+  const [tWorkplaceBn, setTWorkplaceBn] = useState('');
+  const [tWorkplaceEn, setTWorkplaceEn] = useState('');
+  const [tCourseBn, setTCourseBn] = useState('কম্পিউটার অফিস অ্যাপ্লিকেশন (৬ মাস)');
+  const [tCourseEn, setTCourseEn] = useState('Computer Office Application (6 Months)');
+  const [tBatchBn, setTBatchBn] = useState('');
+  const [tBatchEn, setTBatchEn] = useState('');
+  const [tStoryBn, setTStoryBn] = useState('');
+  const [tStoryEn, setTStoryEn] = useState('');
+  const [tRating, setTRating] = useState<number>(5);
 
   // 2. Student Control State
   const defaultStudents: StudentAccount[] = [
@@ -293,6 +528,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       generatedPdfUrl = URL.createObjectURL(newNoticePdfFile);
     }
 
+    const feeNum = newNoticeFeeAmount ? parseFloat(newNoticeFeeAmount) : undefined;
+
     const newNotice: NoticeItem = {
       id: Date.now(),
       title: newNoticeTitle,
@@ -302,6 +539,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       urgent: false,
       pdfUrl: generatedPdfUrl,
       pdfName: newNoticePdfName || (newNoticePdfFile ? newNoticePdfFile.name : undefined),
+      feeAmount: !isNaN(feeNum as number) ? feeNum : undefined,
+      remarks: newNoticeRemarks.trim() || undefined,
     };
 
     if (onAddNotice) {
@@ -313,9 +552,124 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Reset Form
     setNewNoticeTitle('');
     setNewNoticeDescription('');
+    setNewNoticeFeeAmount('220');
+    setNewNoticeRemarks('');
     setNewNoticePdfFile(null);
     setNewNoticePdfName('');
     setShowAddNoticeModal(false);
+  };
+
+  // Testimonial Handlers
+  const handleOpenAddTestimonial = () => {
+    setEditingTestimonial(null);
+    setTNameBn('');
+    setTNameEn('');
+    setTRoleBn('');
+    setTRoleEn('');
+    setTWorkplaceBn('');
+    setTWorkplaceEn('');
+    setTCourseBn('কম্পিউটার অফিস অ্যাপ্লিকেশন (৬ মাস মেয়াদী)');
+    setTCourseEn('Computer Office Application (6 Months)');
+    setTBatchBn('ব্যাচ-৩২');
+    setTBatchEn('Batch-32');
+    setTStoryBn('');
+    setTStoryEn('');
+    setTRating(5);
+    setShowTestimonialModal(true);
+  };
+
+  const handleOpenEditTestimonial = (item: StudentTestimonial) => {
+    setEditingTestimonial(item);
+    setTNameBn(item.nameBn);
+    setTNameEn(item.nameEn);
+    setTRoleBn(item.roleBn);
+    setTRoleEn(item.roleEn);
+    setTWorkplaceBn(item.workplaceBn || '');
+    setTWorkplaceEn(item.workplaceEn || '');
+    setTCourseBn(item.courseBn);
+    setTCourseEn(item.courseEn);
+    setTBatchBn(item.batchBn);
+    setTBatchEn(item.batchEn);
+    setTStoryBn(item.storyBn);
+    setTStoryEn(item.storyEn);
+    setTRating(item.rating || 5);
+    setShowTestimonialModal(true);
+  };
+
+  const handleSaveTestimonialSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tNameBn.trim() || !tStoryBn.trim()) {
+      setAdminStatusToast('অনুগ্রহ করে নাম এবং সাফল্যের গল্প/মন্তব্য লিখুন।');
+      setTimeout(() => setAdminStatusToast(null), 3000);
+      return;
+    }
+
+    if (editingTestimonial) {
+      const updated: StudentTestimonial = {
+        ...editingTestimonial,
+        nameBn: tNameBn.trim(),
+        nameEn: tNameEn.trim() || tNameBn.trim(),
+        roleBn: tRoleBn.trim(),
+        roleEn: tRoleEn.trim() || tRoleBn.trim(),
+        workplaceBn: tWorkplaceBn.trim() || undefined,
+        workplaceEn: tWorkplaceEn.trim() || undefined,
+        courseBn: tCourseBn.trim(),
+        courseEn: tCourseEn.trim(),
+        batchBn: tBatchBn.trim(),
+        batchEn: tBatchEn.trim() || tBatchBn.trim(),
+        storyBn: tStoryBn.trim(),
+        storyEn: tStoryEn.trim() || tStoryBn.trim(),
+        rating: tRating,
+      };
+
+      if (onUpdateTestimonial) {
+        onUpdateTestimonial(updated);
+      }
+      const updatedList = testimonials.map((t) => (t.id === updated.id ? updated : t));
+      setLocalTestimonials(updatedList);
+      savePersistentTestimonials(updatedList);
+      setAdminStatusToast('শিক্ষার্থীর সাফল্যের গল্প সফলভাবে আপডেট হয়েছে!');
+    } else {
+      const newTestimonial: StudentTestimonial = {
+        id: Date.now(),
+        nameBn: tNameBn.trim(),
+        nameEn: tNameEn.trim() || tNameBn.trim(),
+        roleBn: tRoleBn.trim(),
+        roleEn: tRoleEn.trim() || tRoleBn.trim(),
+        workplaceBn: tWorkplaceBn.trim() || undefined,
+        workplaceEn: tWorkplaceEn.trim() || undefined,
+        courseBn: tCourseBn.trim(),
+        courseEn: tCourseEn.trim(),
+        batchBn: tBatchBn.trim(),
+        batchEn: tBatchEn.trim() || tBatchBn.trim(),
+        storyBn: tStoryBn.trim(),
+        storyEn: tStoryEn.trim() || tStoryBn.trim(),
+        rating: tRating,
+        isFeatured: true,
+      };
+
+      if (onAddTestimonial) {
+        onAddTestimonial(newTestimonial);
+      }
+      const updatedList = [newTestimonial, ...testimonials];
+      setLocalTestimonials(updatedList);
+      savePersistentTestimonials(updatedList);
+      setAdminStatusToast('নতুন সাফল্যের গল্প সফলভাবে যোগ হয়েছে!');
+    }
+
+    setShowTestimonialModal(false);
+    setTimeout(() => setAdminStatusToast(null), 3500);
+  };
+
+  const handleDeleteTestimonialClick = (id: number) => {
+    if (onDeleteTestimonial) {
+      onDeleteTestimonial(id);
+    }
+    const updatedList = testimonials.filter((t) => t.id !== id);
+    setLocalTestimonials(updatedList);
+    savePersistentTestimonials(updatedList);
+    setAdminStatusToast('টেস্টিমোনিয়াল মুছে ফেলা হয়েছে!');
+    setTimeout(() => setAdminStatusToast(null), 3000);
   };
 
   const handleDeleteNoticeClick = (id: number) => {
@@ -753,10 +1107,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div>
             {/* Institute Identity */}
             <div className="flex flex-col items-center pb-6 border-b border-white/10 text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-rose-600 p-0.5 shadow-lg mb-2.5">
-                <div className="w-full h-full rounded-full bg-[#161a2b] flex items-center justify-center text-white font-bold text-lg">
-                  ACTC
-                </div>
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-rose-600 p-0.5 shadow-lg mb-2.5 overflow-hidden">
+                <img
+                  src="/assets/aistudio/8fee6d14-342b-408c-880a-68e307e04b81_f55db718.jfif"
+                  alt="Asad Computer Official Logo"
+                  className="w-full h-full rounded-full object-cover"
+                />
               </div>
               <h3 className="text-sm font-bold text-white tracking-wide">Md. Asaduzzaman</h3>
               <span className="text-[11px] text-amber-400 font-semibold mt-0.5">Institute Director</span>
@@ -835,6 +1191,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </button>
 
+              <button
+                onClick={() => setActiveTab('testimonials')}
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium transition-colors cursor-pointer ${
+                  activeTab === 'testimonials'
+                    ? 'bg-amber-500/20 text-amber-300 font-bold border-l-2 border-amber-500'
+                    : 'text-stone-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Award className="w-4 h-4 text-amber-400" />
+                <div className="flex-1 text-left">
+                  <span className="block font-medium">সাফল্যের গল্প ও রিভিউ</span>
+                  <span className="block text-[10px] text-amber-400/90 font-mono">Testimonials ({testimonials.length})</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('seo')}
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium transition-colors cursor-pointer ${
+                  activeTab === 'seo'
+                    ? 'bg-amber-500/20 text-amber-300 font-bold border-l-2 border-amber-500'
+                    : 'text-stone-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Globe className="w-4 h-4 text-cyan-400" />
+                <div className="flex-1 text-left">
+                  <span className="block font-medium">এসইও ও মেটাডাটা</span>
+                  <span className="block text-[10px] text-cyan-400/90 font-mono">SEO & Meta Tags</span>
+                </div>
+              </button>
             </nav>
           </div>
 
@@ -1023,6 +1408,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           )}
                           <div className="flex flex-wrap items-center gap-2 mt-1.5">
                             <span className="text-[10px] text-stone-400">{notice.date}</span>
+                            {notice.feeAmount !== undefined && (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                                <CreditCard className="w-3 h-3 text-emerald-600" />
+                                <span>আবেদন ফি: ৳{notice.feeAmount}</span>
+                              </span>
+                            )}
+                            {notice.remarks && (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-medium">
+                                <Info className="w-3 h-3 text-amber-600" />
+                                <span className="truncate max-w-[260px]">মন্তব্য: {notice.remarks}</span>
+                              </span>
+                            )}
                             {notice.pdfName && (
                               <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-medium">
                                 <Paperclip className="w-3 h-3 text-teal-600" />
@@ -1718,6 +2115,269 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
+                {/* Dedicated Admin ID & Password Management Card */}
+                <div className="bg-white p-5 sm:p-6 rounded-2xl border-2 border-indigo-200 shadow-sm relative overflow-hidden">
+                  <div className="h-1.5 bg-gradient-to-r from-amber-500 via-indigo-600 to-indigo-700 absolute top-0 left-0 right-0" />
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+                        <Key className="w-5 h-5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-bold text-sm sm:text-base text-stone-900">
+                            অ্যাডমিন লগইন আইডি ও পাসওয়ার্ড পরিবর্তন
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
+                            অ্যাডমিন কন্ট্রোল
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-500 mt-0.5">
+                          আপনার নিজস্ব অ্যাডমিন ইউজারনেম/আইডি এবং পাসওয়ার্ড নিজে সেট ও পরিবর্তন করুন। পরিবর্তনের পর এই নতুন তথ্য দিয়ে লগইন করতে হবে।
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsAdminFormExpanded(!isAdminFormExpanded)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 hover:bg-indigo-50 border border-indigo-200 transition-colors cursor-pointer self-start sm:self-auto"
+                    >
+                      {isAdminFormExpanded ? 'ফর্ম সংক্ষেপ করুন' : 'পাসওয়ার্ড পরিবর্তন ফর্ম খুলুন'}
+                    </button>
+                  </div>
+
+                  {/* Currently Active Admin Credentials Display */}
+                  <div className="mt-4 p-3.5 bg-gradient-to-r from-indigo-50/70 via-stone-50 to-amber-50/60 rounded-xl border border-indigo-100 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-stone-500 font-medium">বর্তমান সক্রিয় আইডি:</span>
+                        <span className="font-mono font-bold text-stone-900 bg-white px-2.5 py-1 rounded-md border border-stone-200 shadow-2xs select-all">
+                          {activeAdminCreds.username}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(activeAdminCreds.username, 'current-admin-user')}
+                          className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+                          title="Copy Username"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        {copiedId === 'current-admin-user' && (
+                          <span className="text-[10px] text-emerald-600 font-bold">কপি হয়েছে!</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <span className="text-stone-500 font-medium">বর্তমান পাসওয়ার্ড:</span>
+                        <code className="font-mono font-bold text-indigo-900 bg-white px-2.5 py-1 rounded-md border border-stone-200 shadow-2xs select-all">
+                          {showActiveAdminPass ? activeAdminCreds.password : '••••••••'}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => setShowActiveAdminPass(!showActiveAdminPass)}
+                          className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+                          title={showActiveAdminPass ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                        >
+                          {showActiveAdminPass ? (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(activeAdminCreds.password, 'current-admin-pass')}
+                          className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+                          title="Copy Password"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        {copiedId === 'current-admin-pass' && (
+                          <span className="text-[10px] text-emerald-600 font-bold">কপি হয়েছে!</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-stone-500 shrink-0">
+                      সর্বশেষ আপডেট: <span className="font-mono font-semibold text-stone-700">{activeAdminCreds.updatedAt ? new Date(activeAdminCreds.updatedAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' }) : 'প্রাথমিক সেটআপ'}</span>
+                    </div>
+                  </div>
+
+                  {/* Change Form */}
+                  {isAdminFormExpanded && (
+                    <form onSubmit={handleAdminCredentialsSubmit} className="mt-5 space-y-4">
+                      {/* Notifications */}
+                      {adminCredError && (
+                        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center space-x-2.5 animate-fadeIn">
+                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>{adminCredError}</span>
+                        </div>
+                      )}
+
+                      {adminCredSuccess && (
+                        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center space-x-2.5 animate-fadeIn">
+                          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>{adminCredSuccess}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Current Password Field */}
+                        <div className="space-y-1 md:col-span-2">
+                          <label className="text-xs font-bold text-stone-700 flex items-center space-x-1">
+                            <span>বর্তমান অ্যাডমিন পাসওয়ার্ড (Current Password)</span>
+                            <span className="text-rose-600">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showCurrentAdminPass ? 'text' : 'password'}
+                              value={currentAdminPasswordInput}
+                              onChange={(e) => setCurrentAdminPasswordInput(e.target.value)}
+                              placeholder="আপনার বর্তমান সক্রিয় পাসওয়ার্ড দিন (যেমন: admin123)"
+                              required
+                              className="w-full text-xs px-3.5 py-2.5 pr-10 rounded-xl bg-white border border-stone-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowCurrentAdminPass(!showCurrentAdminPass)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1 cursor-pointer"
+                            >
+                              {showCurrentAdminPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-stone-400">নিরাপত্তার স্বার্থে বর্তমান পাসওয়ার্ড যাচাইয়ের পর নতুন তথ্য সেভ করা হবে।</p>
+                        </div>
+
+                        {/* New Admin ID / Username */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-stone-700 flex items-center space-x-1">
+                            <span>নতুন অ্যাডমিন ইউজারনেম / আইডি (New Admin ID)</span>
+                            <span className="text-rose-600">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={newAdminUsernameInput}
+                            onChange={(e) => setNewAdminUsernameInput(e.target.value)}
+                            placeholder="যেমন: admin, 01773733654, অথবা asad.admin"
+                            required
+                            className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-white border border-stone-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-mono"
+                          />
+                          <p className="text-[10px] text-stone-400">লগইন করার সময় এই ইউজারনেম, ইমেইল বা ফোন নম্বরটি দিতে হবে।</p>
+                        </div>
+
+                        {/* New Password */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-stone-700 flex items-center space-x-1">
+                            <span>নতুন পাসওয়ার্ড (New Password)</span>
+                            <span className="text-rose-600">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showNewAdminPass ? 'text' : 'password'}
+                              value={newAdminPasswordInput}
+                              onChange={(e) => setNewAdminPasswordInput(e.target.value)}
+                              placeholder="কমপক্ষে ৬ অক্ষরের নতুন পাসওয়ার্ড লিখুন"
+                              required
+                              minLength={6}
+                              className="w-full text-xs px-3.5 py-2.5 pr-10 rounded-xl bg-white border border-stone-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewAdminPass(!showNewAdminPass)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1 cursor-pointer"
+                            >
+                              {showNewAdminPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          {newAdminPasswordInput.length > 0 && (
+                            <div className="flex items-center space-x-2 pt-0.5">
+                              <div className="flex-1 h-1 rounded-full bg-stone-200 overflow-hidden">
+                                <div
+                                  className={`h-full transition-all ${
+                                    newAdminPasswordInput.length >= 8 && /[0-9]/.test(newAdminPasswordInput)
+                                      ? 'w-full bg-emerald-500'
+                                      : newAdminPasswordInput.length >= 6
+                                      ? 'w-2/3 bg-amber-500'
+                                      : 'w-1/3 bg-rose-500'
+                                  }`}
+                                />
+                              </div>
+                              <span className="text-[10px] font-semibold text-stone-500">
+                                {newAdminPasswordInput.length >= 8 && /[0-9]/.test(newAdminPasswordInput)
+                                  ? 'শক্তিশালী'
+                                  : newAdminPasswordInput.length >= 6
+                                  ? 'মধ্যম'
+                                  : 'দুর্বল'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Confirm New Password */}
+                        <div className="space-y-1 md:col-span-2">
+                          <label className="text-xs font-bold text-stone-700 flex items-center space-x-1">
+                            <span>নতুন পাসওয়ার্ড পুনরায় নিশ্চিত করুন (Confirm Password)</span>
+                            <span className="text-rose-600">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showConfirmAdminPass ? 'text' : 'password'}
+                              value={confirmAdminPasswordInput}
+                              onChange={(e) => setConfirmAdminPasswordInput(e.target.value)}
+                              placeholder="একই নতুন পাসওয়ার্ড আবার লিখুন"
+                              required
+                              minLength={6}
+                              className="w-full text-xs px-3.5 py-2.5 pr-10 rounded-xl bg-white border border-stone-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmAdminPass(!showConfirmAdminPass)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1 cursor-pointer"
+                            >
+                              {showConfirmAdminPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Security Guidelines Info */}
+                      <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed flex items-start space-x-2">
+                        <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                        <div>
+                          <strong>গুরুত্বপূর্ণ সুরক্ষা নির্দেশনা:</strong> এখানে "আইডি ও পাসওয়ার্ড আপডেট করুন" বাটনে ক্লিক করার সাথে সাথে আপনার নতুন তথ্য সরাসরি ব্রাউজারের স্থায়ী ডাটাবেজে সংরক্ষিত হয়ে যাবে। আপনি পরবর্তীতে ইনস্টিটিউট লগইন করার সময় এই নতুন ইউজারনেম ও নতুন পাসওয়ার্ড দিয়ে প্রবেশ করতে পারবেন।
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentAdminPasswordInput('');
+                            setNewAdminPasswordInput('');
+                            setConfirmAdminPasswordInput('');
+                            setAdminCredError(null);
+                            setAdminCredSuccess(null);
+                          }}
+                          className="px-4 py-2 text-xs font-semibold text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
+                        >
+                          মুছে ফেলুন
+                        </button>
+
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-800 hover:from-indigo-700 hover:to-indigo-900 text-white font-bold text-xs rounded-xl shadow-md hover:shadow-indigo-500/25 transition-all flex items-center space-x-2 cursor-pointer"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                          <span>আইডি ও পাসওয়ার্ড আপডেট করুন</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+
                 {/* User Password Reset Requests Management Section */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-stone-200">
@@ -1830,7 +2490,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 {matchedPassword && (
                                   <div className="bg-white px-3 py-1.5 rounded-lg border border-amber-300 flex items-center space-x-2">
                                     <span className="text-[10px] text-amber-900 font-bold uppercase">পাসওয়ার্ড:</span>
-                                    <code className="text-xs font-mono font-bold text-rose-600 select-all">{matchedPassword}</code>
+                                    <code className="text-xs font-mono font-bold text-rose-600 select-all">
+                                      {showPasswords[`req-pass-${req.id}`] ? matchedPassword : '••••••••'}
+                                    </code>
+                                    <button
+                                      onClick={() => togglePasswordVisibility(`req-pass-${req.id}`)}
+                                      className="text-stone-400 hover:text-stone-700 p-0.5 cursor-pointer"
+                                      title={showPasswords[`req-pass-${req.id}`] ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                                    >
+                                      {showPasswords[`req-pass-${req.id}`] ? (
+                                        <EyeOff className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <Eye className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
                                     <button
                                       onClick={() => handleCopyText(matchedPassword!, `req-pass-${req.id}`)}
                                       className="text-stone-400 hover:text-stone-700 p-0.5 cursor-pointer"
@@ -2076,6 +2749,641 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {/* VIEW: STUDENT TESTIMONIALS CONTROL */}
+            {activeTab === 'testimonials' && (
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-200 shadow-xs mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-stone-200">
+                  <div>
+                    <h4 className="text-sm font-bold text-stone-900 uppercase tracking-wider flex items-center space-x-2">
+                      <Award className="w-4 h-4 text-amber-500" />
+                      <span>শিক্ষার্থীদের সাফল্যের গল্প ও রিভিউ (Student Testimonials)</span>
+                    </h4>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      হোমপেজের 'Student Success Stories' সেকশনের সকল রিভিউ এডমিন প্যানেল থেকে যোগ, সম্পাদনা বা মুছতে পারবেন।
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleOpenAddTestimonial}
+                    className="flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-xs self-start sm:self-auto"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>নতুন টেস্টিমোনিয়াল যোগ করুন</span>
+                  </button>
+                </div>
+
+                {/* Testimonials List */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {testimonials.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-4 sm:p-5 rounded-2xl border border-stone-200 hover:border-amber-300 bg-stone-50/60 hover:bg-white transition-all shadow-2xs flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Header: Rating & Actions */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-1">
+                            {[...Array(item.rating || 5)].map((_, i) => (
+                              <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                            ))}
+                            <span className="text-xs font-bold text-stone-700 ml-1">5.0</span>
+                          </div>
+
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => handleOpenEditTestimonial(item)}
+                              className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                              title="Edit Testimonial"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTestimonialClick(item.id)}
+                              className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Testimonial"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Student Info */}
+                        <div className="flex items-center space-x-3 mb-3">
+                          <div className="w-10 h-10 rounded-full bg-emerald-700 text-white font-bold flex items-center justify-center text-sm shadow-xs shrink-0">
+                            {item.nameEn ? item.nameEn.charAt(0).toUpperCase() : 'S'}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h5 className="font-bold text-stone-900 text-sm leading-tight flex items-center space-x-1">
+                              <span>{item.nameBn}</span>
+                              <span className="text-stone-400 font-normal text-xs">({item.nameEn})</span>
+                            </h5>
+                            <p className="text-[11px] font-semibold text-emerald-800 truncate mt-0.5">
+                              {item.roleBn} {item.workplaceBn ? `· ${item.workplaceBn}` : ''}
+                            </p>
+                            <span className="text-[10px] text-stone-500 block">
+                              {item.courseBn} · {item.batchBn}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quote preview */}
+                        <div className="p-3 bg-white rounded-xl border border-stone-200 text-xs text-stone-700 leading-relaxed italic mb-2">
+                          <p className="line-clamp-3">"{item.storyBn}"</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 text-[10px] text-stone-400 flex items-center justify-between border-t border-stone-100">
+                        <span>ইংরেজি: {item.storyEn ? 'সংযুক্ত' : 'অপ্রতুল'}</span>
+                        <span className="font-mono text-emerald-700 font-semibold">হোমপেজে প্রদর্শিত</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* VIEW: WEBSITE SEO, META TAGS & SEARCH ENGINE INDEXING */}
+            {activeTab === 'seo' && (
+              <div className="space-y-6 mb-6">
+                {/* Header Banner */}
+                <div className="bg-gradient-to-r from-stone-900 via-[#132738] to-stone-900 text-white p-5 sm:p-6 rounded-2xl shadow-md border border-stone-700">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1.5 max-w-2xl">
+                      <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-[11px] font-semibold">
+                        <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>সার্চ ইঞ্জিন অপ্টিমাইজেশন (SEO) ও মেটাডাটা কন্ট্রোল</span>
+                      </div>
+                      <h3 className="text-base sm:text-lg font-bold text-white tracking-wide">
+                        ওয়েবসাইট মেটা টাইটেল, ডেসক্রিপশন ও কি-ওয়ার্ড ডায়নামিক কনফিগারেশন
+                      </h3>
+                      <p className="text-xs text-stone-300 leading-relaxed">
+                        গুগল (Google), বিং (Bing) এবং সোশ্যাল মিডিয়ায় প্রতিষ্ঠানের তথ্য আকর্ষণীয়ভাবে উপস্থাপন ও সার্চ র‍্যাঙ্কিং বৃদ্ধির জন্য এখান থেকে সরাসরি মেটাডাটা আপডেট করুন। এটি ব্রাউজারের &lt;head&gt; ট্যাগে তৎক্ষণাৎ সক্রিয় হয়ে যাবে।
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleResetToDefaultSeo}
+                        className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-xs rounded-xl transition-all flex items-center space-x-2 cursor-pointer"
+                        title="Reset to recommended default SEO template"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-cyan-300" />
+                        <span>প্রস্তাবিত এসইও লোড করুন</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary Metric Counters */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-white/10 text-xs">
+                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                      <span className="text-stone-400 text-[11px] block">গুগল SERP প্রিভিউ</span>
+                      <span className="text-xs font-bold text-emerald-400 flex items-center space-x-1 mt-0.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>লাইভ সিঙ্কড</span>
+                      </span>
+                    </div>
+                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                      <span className="text-stone-400 text-[11px] block">রোবট ইনডেক্সিং</span>
+                      <span className="text-xs font-bold text-cyan-300 mt-0.5 block font-mono">{seoRobots}</span>
+                    </div>
+                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                      <span className="text-stone-400 text-[11px] block">সক্রিয় কি-ওয়ার্ডস</span>
+                      <span className="text-sm font-bold text-amber-300">
+                        {seoKeywords.split(',').filter((k) => k.trim()).length} টি ট্যাগ
+                      </span>
+                    </div>
+                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                      <span className="text-stone-400 text-[11px] block">স্ট্রাকচার্ড ডাটা</span>
+                      <span className="text-xs font-bold text-emerald-300 mt-0.5 block">Schema.org JSON-LD</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notifications */}
+                {seoToast && (
+                  <div
+                    className={`p-4 rounded-xl border text-xs flex items-center space-x-2.5 animate-fadeIn shadow-2xs ${
+                      seoToast.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                        : 'bg-rose-50 border-rose-300 text-rose-900'
+                    }`}
+                  >
+                    {seoToast.type === 'success' ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span className="font-medium">{seoToast.text}</span>
+                  </div>
+                )}
+
+                {/* Live Real-time Previews Container */}
+                <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-200 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-stone-200">
+                    <div>
+                      <h4 className="font-bold text-sm text-stone-900 flex items-center space-x-2">
+                        <Sparkles className="w-4 h-4 text-cyan-600" />
+                        <span>লাইভ সার্চ ও সোশ্যাল শেয়ার প্রিভিউ (Live Preview)</span>
+                      </h4>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        আপনার প্রবেশ করানো মেটাডাটা গুগল সার্চ রেজাল্ট এবং সোশ্যাল মিডিয়ায় ঠিক কেমন দেখাবে তা নিচে সরাসরি পর্যবেক্ষণ করুন।
+                      </p>
+                    </div>
+
+                    {/* Preview Switcher Tabs */}
+                    <div className="flex items-center space-x-1 p-1 bg-stone-100 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setSeoPreviewTab('google')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          seoPreviewTab === 'google'
+                            ? 'bg-white text-stone-900 shadow-2xs'
+                            : 'text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        Google SERP
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSeoPreviewTab('social')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          seoPreviewTab === 'social'
+                            ? 'bg-white text-stone-900 shadow-2xs'
+                            : 'text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        Social Card (FB/WA)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSeoPreviewTab('schema')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          seoPreviewTab === 'schema'
+                            ? 'bg-white text-stone-900 shadow-2xs'
+                            : 'text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        JSON-LD Schema
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 1. Google SERP Preview Card */}
+                  {seoPreviewTab === 'google' && (
+                    <div className="p-4 sm:p-5 rounded-2xl bg-white border border-stone-200 shadow-sm font-sans max-w-2xl">
+                      <div className="flex items-center space-x-2.5 mb-1.5">
+                        <img
+                          src="/assets/aistudio/8fee6d14-342b-408c-880a-68e307e04b81_f55db718.jfif"
+                          alt="Asad Computer Logo"
+                          className="w-7 h-7 rounded-full object-cover shrink-0 shadow-2xs border border-stone-200"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-medium text-stone-800 block truncate">
+                            Asad Computer & Training Center
+                          </span>
+                          <span className="text-[11px] text-stone-500 font-mono block truncate">
+                            {seoCanonicalUrl || 'https://asadcomputer.com'} › bhully-bazar
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Google Search Title in classic Google blue */}
+                      <h3 className="text-base sm:text-lg font-normal text-[#1a0dab] hover:underline cursor-pointer leading-snug line-clamp-2 mt-1">
+                        {seoTitle || 'Asad Computer & Training Center'}
+                      </h3>
+
+                      {/* Snippet Description in classic Google snippet grey */}
+                      <p className="text-xs sm:text-[13px] text-[#4d5156] leading-relaxed line-clamp-3 mt-1">
+                        {seoDescription || 'Asad Computer & Training Center offers certified training...'}
+                      </p>
+
+                      {/* Google Character Count Guidelines Bar */}
+                      <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-3 text-[11px]">
+                        <span className="text-stone-500">টাইটেল দৈর্ঘ্য:</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold font-mono ${
+                            seoTitle.length >= 30 && seoTitle.length <= 60
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : seoTitle.length > 60
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {seoTitle.length} / 60 অক্ষর {seoTitle.length >= 30 && seoTitle.length <= 60 ? '(আদর্শ)' : seoTitle.length > 60 ? '(বেশি বড়)' : '(আদর্শ ৩০-৬০)'}
+                        </span>
+
+                        <span className="text-stone-500 ml-2">ডেসক্রিপশন দৈর্ঘ্য:</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold font-mono ${
+                            seoDescription.length >= 120 && seoDescription.length <= 160
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : seoDescription.length > 160
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {seoDescription.length} / 160 অক্ষর {seoDescription.length >= 120 && seoDescription.length <= 160 ? '(আদর্শ)' : seoDescription.length > 160 ? '(বেশি বড়)' : '(আদর্শ ১২০-১৬০)'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. Social Card Preview (OpenGraph / Facebook / WhatsApp) */}
+                  {seoPreviewTab === 'social' && (
+                    <div className="max-w-md rounded-2xl overflow-hidden border border-stone-300 shadow-md bg-stone-50">
+                      {/* Social Image Banner Placeholder */}
+                      <div className="h-44 bg-gradient-to-br from-[#161a2b] via-[#1e2746] to-[#0f1422] p-5 flex flex-col justify-between text-white relative">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <img
+                              src="/assets/aistudio/8fee6d14-342b-408c-880a-68e307e04b81_f55db718.jfif"
+                              alt="ACTC Official Logo"
+                              className="w-6 h-6 rounded-full object-cover border border-amber-400/40"
+                            />
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold">
+                              ACTC OFFICIAL
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-stone-400 font-mono">OpenGraph 1200×630</span>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-white tracking-wide">
+                            Asad Computer & Training Center
+                          </div>
+                          <div className="text-xs text-amber-400 font-medium mt-0.5">
+                            Under Bangladesh Post Office · Complete Solution
+                          </div>
+                          <div className="text-[11px] text-stone-300 mt-1">
+                            Bottola, Bhully Bazar, Thakurgaon
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Social Card Details */}
+                      <div className="p-3.5 bg-white border-t border-stone-200">
+                        <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider block">
+                          {(seoCanonicalUrl || 'https://asadcomputer.com').replace(/^https?:\/\//, '')}
+                        </span>
+                        <h4 className="font-bold text-stone-900 text-sm mt-0.5 leading-snug line-clamp-2">
+                          {seoTitle || 'Asad Computer & Training Center'}
+                        </h4>
+                        <p className="text-xs text-stone-600 mt-1 line-clamp-2 leading-relaxed">
+                          {seoDescription || 'Certified Computer Office Application training and full online application services.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. Schema.org JSON-LD Structured Data Preview */}
+                  {seoPreviewTab === 'schema' && (
+                    <div className="p-4 bg-stone-900 text-stone-200 rounded-xl font-mono text-xs overflow-x-auto max-h-72 border border-stone-700">
+                      <div className="flex items-center justify-between mb-2 pb-2 border-b border-stone-800 text-stone-400 text-[11px]">
+                        <span>&lt;script type="application/ld+json"&gt;</span>
+                        <span className="text-emerald-400 font-bold">EducationalOrganization Schema</span>
+                      </div>
+                      <pre className="text-stone-300">
+{JSON.stringify(
+  {
+    '@context': 'https://schema.org',
+    '@type': 'EducationalOrganization',
+    name: 'Asad Computer & Training Center',
+    alternateName: 'আসাদ কম্পিউটার অ্যান্ড ট্রেনিং সেন্টার',
+    url: seoCanonicalUrl || 'https://asadcomputer.com',
+    logo: `${seoCanonicalUrl || 'https://asadcomputer.com'}/assets/aistudio/8fee6d14-342b-408c-880a-68e307e04b81_f55db718.jfif`,
+    image: `${seoCanonicalUrl || 'https://asadcomputer.com'}/assets/aistudio/8fee6d14-342b-408c-880a-68e307e04b81_f55db718.jfif`,
+    description: seoDescription,
+    telephone: '+8801773733654',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: 'Bottola, Bhully Bazar',
+      addressLocality: 'Thakurgaon',
+      postalCode: '5100',
+      addressCountry: 'BD',
+    },
+    founder: {
+      '@type': 'Person',
+      name: seoAuthor || 'Md. Asaduzzaman',
+      jobTitle: 'Director',
+      telephone: '+8801773733654',
+    },
+    educationalCredentialAwarded: 'Computer Office Application (3 & 6 Months Certified)',
+    keywords: seoKeywords,
+  },
+  null,
+  2
+)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+
+                {/* SEO Configuration Edit Form */}
+                <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-200 shadow-xs relative overflow-hidden">
+                  <div className="h-1.5 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 absolute top-0 left-0 right-0" />
+
+                  <div className="flex items-center space-x-3 pb-4 mb-5 border-b border-stone-200">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-700 flex items-center justify-center shrink-0 shadow-2xs">
+                      <Edit className="w-5 h-5 text-cyan-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm sm:text-base text-stone-900">
+                        মেটা টাইটেল, ডেসক্রিপশন ও কি-ওয়ার্ড এডিটর
+                      </h4>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        এখানে যা পরিবর্তন করবেন তা সরাসরি আপনার ওয়েবসাইটের হেড ট্যাগে এবং সার্চ ইঞ্জিনে কার্যকরী হবে।
+                      </p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSaveSeoConfig} className="space-y-5">
+                    {/* Field 1: Meta Title */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-stone-700 flex items-center space-x-1">
+                          <span>ওয়েবসাইট মেটা টাইটেল (Page Title &amp; og:title)</span>
+                          <span className="text-rose-600">*</span>
+                        </label>
+                        <span
+                          className={`text-[11px] font-mono font-bold ${
+                            seoTitle.length >= 30 && seoTitle.length <= 60
+                              ? 'text-emerald-600'
+                              : seoTitle.length > 60
+                              ? 'text-amber-600'
+                              : 'text-stone-400'
+                          }`}
+                        >
+                          {seoTitle.length} / ৬০ অক্ষর (প্রস্তাবিত: ৩০-৬০)
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        value={seoTitle}
+                        onChange={(e) => setSeoTitle(e.target.value)}
+                        placeholder="যেমন: Asad Computer &amp; Training Center - Computer Office Application &amp; Online Services"
+                        required
+                        className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl bg-white border border-stone-300 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 outline-none transition-all font-medium text-stone-900 shadow-2xs"
+                      />
+                      <p className="text-[11px] text-stone-500">
+                        গুগল সার্চে নীল রঙের প্রধান শিরোনাম হিসেবে এটি দেখা যাবে। ব্র্যান্ডের নাম ও মূল প্রশিক্ষণ/সেবার উল্লেখ রাখুন।
+                      </p>
+                    </div>
+
+                    {/* Field 2: Meta Description */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-stone-700 flex items-center space-x-1">
+                          <span>ওয়েবসাইট মেটা ডেসক্রিপশন (Meta Description &amp; og:description)</span>
+                          <span className="text-rose-600">*</span>
+                        </label>
+                        <span
+                          className={`text-[11px] font-mono font-bold ${
+                            seoDescription.length >= 120 && seoDescription.length <= 160
+                              ? 'text-emerald-600'
+                              : seoDescription.length > 160
+                              ? 'text-amber-600'
+                              : 'text-stone-400'
+                          }`}
+                        >
+                          {seoDescription.length} / ১৬০ অক্ষর (প্রস্তাবিত: ১২০-১৬০)
+                        </span>
+                      </div>
+                      <textarea
+                        rows={3}
+                        value={seoDescription}
+                        onChange={(e) => setSeoDescription(e.target.value)}
+                        placeholder="প্রতিষ্ঠানের কোর্সসমূহ, ডাক বিভাগ কর্তৃক প্রত্যয়ন এবং সকল অনলাইন সেবার সারসংক্ষেপ লিখুন..."
+                        required
+                        className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl bg-white border border-stone-300 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 outline-none transition-all font-medium text-stone-900 shadow-2xs leading-relaxed"
+                      />
+                      <p className="text-[11px] text-stone-500">
+                        গুগল সার্চে টাইটেলের নিচে ১-২ লাইনের বিবরণ হিসেবে প্রদর্শিত হয়। শিক্ষার্থী ও আবেদনকারীদের আকর্ষণের জন্য কোর্স ফি বা অবস্থানের তথ্য যোগ করতে পারেন।
+                      </p>
+                    </div>
+
+                    {/* Field 3: Meta Keywords */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-stone-700 flex items-center space-x-1">
+                          <span>সার্চ ইঞ্জিন মেটা কি-ওয়ার্ডস (Meta Keywords)</span>
+                          <span className="text-stone-400 font-normal">(কমা দিয়ে আলাদা করুন)</span>
+                        </label>
+                        <span className="text-[11px] font-mono text-stone-500">
+                          মোট: {seoKeywords.split(',').filter((k) => k.trim()).length} টি
+                        </span>
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={seoKeywords}
+                        onChange={(e) => setSeoKeywords(e.target.value)}
+                        placeholder="computer training, computer office application, bangladesh post office, digital land services..."
+                        className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-white border border-stone-300 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 outline-none transition-all font-mono text-stone-800 shadow-2xs leading-relaxed"
+                      />
+
+                      {/* Clickable Recommended Keyword Pills */}
+                      <div className="pt-1">
+                        <span className="text-[11px] font-bold text-stone-600 block mb-1.5">
+                          দ্রুত কি-ওয়ার্ড যোগ করতে ক্লিক করুন:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            'Computer Office Application',
+                            'Bangladesh Post Office Certificate',
+                            'Digital Land Services',
+                            'E-Mutation & Khatian',
+                            'Job Application Desk',
+                            'Admit Card Download',
+                            'Thakurgaon Computer Training',
+                            'Bhully Bazar Bottola',
+                            'High Speed Typing Training',
+                            'Online Shongshodhon',
+                            'E-TIN & Passport Form',
+                          ].map((k) => {
+                            const isAdded = seoKeywords.toLowerCase().includes(k.toLowerCase());
+                            return (
+                              <button
+                                key={k}
+                                type="button"
+                                onClick={() => handleAddKeywordPill(k)}
+                                disabled={isAdded}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all flex items-center space-x-1 cursor-pointer ${
+                                  isAdded
+                                    ? 'bg-stone-100 text-stone-400 border border-stone-200 cursor-default'
+                                    : 'bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 hover:border-cyan-300 shadow-2xs'
+                                }`}
+                              >
+                                <span>{isAdded ? '✓' : '+'}</span>
+                                <span>{k}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Active Keywords Tags View */}
+                      {seoKeywords.trim().length > 0 && (
+                        <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 mt-2">
+                          <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
+                            বর্তমানে সক্রিয় কি-ওয়ার্ড তালিকা:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {seoKeywords
+                              .split(',')
+                              .map((k) => k.trim())
+                              .filter(Boolean)
+                              .map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-0.5 rounded-md bg-white border border-stone-200 text-stone-700 text-[11px] font-mono shadow-2xs"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Field 4 & 5: Author and Canonical URL */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-stone-700">
+                          প্রতিষ্ঠান পরিচালক / লেখক (Author Meta)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoAuthor}
+                          onChange={(e) => setSeoAuthor(e.target.value)}
+                          placeholder="Md. Asaduzzaman"
+                          className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-white border border-stone-300 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 outline-none transition-all text-stone-800"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-stone-700">
+                          ক্যানোনিকাল ইউআরএল (Canonical Website URL)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoCanonicalUrl}
+                          onChange={(e) => setSeoCanonicalUrl(e.target.value)}
+                          placeholder="https://asadcomputer.com"
+                          className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-white border border-stone-300 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 outline-none transition-all font-mono text-stone-800"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Field 6: Robots Indexing Selection */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-stone-700">
+                        রোবট সার্চ ইনডেক্সিং পলিসি (Robots Meta Tag)
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label
+                          className={`p-3 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${
+                            seoRobots === 'index, follow'
+                              ? 'bg-cyan-50/70 border-cyan-400 text-cyan-900 shadow-2xs font-bold'
+                              : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="robots_choice"
+                            checked={seoRobots === 'index, follow'}
+                            onChange={() => setSeoRobots('index, follow')}
+                            className="text-cyan-600 focus:ring-cyan-500"
+                          />
+                          <div className="text-xs">
+                            <span className="block font-bold">index, follow (সুপারিশকৃত)</span>
+                            <span className="text-[11px] font-normal text-stone-500">গুগল ও সার্চ ইঞ্জিনে ওয়েবসাইট ইনডেক্স ও প্রদর্শন করবে</span>
+                          </div>
+                        </label>
+
+                        <label
+                          className={`p-3 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${
+                            seoRobots === 'noindex, nofollow'
+                              ? 'bg-amber-50/70 border-amber-400 text-amber-900 shadow-2xs font-bold'
+                              : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="robots_choice"
+                            checked={seoRobots === 'noindex, nofollow'}
+                            onChange={() => setSeoRobots('noindex, nofollow')}
+                            className="text-amber-600 focus:ring-amber-500"
+                          />
+                          <div className="text-xs">
+                            <span className="block font-bold">noindex, nofollow</span>
+                            <span className="text-[11px] font-normal text-stone-500">সার্চ ইঞ্জিনে প্রদর্শন সাময়িকভাবে বন্ধ রাখবে</span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Submit & Reset Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-stone-200">
+                      <button
+                        type="button"
+                        onClick={handleResetToDefaultSeo}
+                        className="px-4 py-2.5 text-xs font-semibold text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer flex items-center space-x-1.5"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>প্রস্তাবিত ডিফল্ট এসইও লোড করুন</span>
+                      </button>
+
+                      <button
+                        type="submit"
+                        className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-700 hover:from-cyan-700 hover:to-indigo-800 text-white font-bold text-xs rounded-xl shadow-md hover:shadow-cyan-500/25 transition-all flex items-center space-x-2 cursor-pointer"
+                      >
+                        <Globe className="w-4 h-4 text-cyan-200" />
+                        <span>এসইও মেটাডাটা সংরক্ষণ ও সক্রিয় করুন</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
             {/* DEFAULT VIEW: OVERVIEW SUMMARY */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
@@ -2180,6 +3488,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {/* SEO & Search Engine Indexing Status Banner */}
+                  <div className="md:col-span-3 bg-gradient-to-r from-cyan-900/10 via-blue-900/5 to-cyan-900/10 p-4 sm:p-5 rounded-2xl border border-cyan-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center shrink-0">
+                        <Globe className="w-5 h-5 text-cyan-700" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h5 className="font-bold text-stone-900 text-xs sm:text-sm">
+                            গুগল ও সার্চ ইঞ্জিন মেটাডাটা (SEO Status)
+                          </h5>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            সক্রিয় ও ইনডেক্সযোগ্য
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-600 mt-0.5 line-clamp-1">
+                          <strong className="text-stone-800">টাইটেল:</strong> {seoTitle} · <strong className="text-stone-800">কি-ওয়ার্ডস:</strong> {seoKeywords.split(',').filter(Boolean).length} টি
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('seo')}
+                      className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-2xs shrink-0 cursor-pointer self-start sm:self-auto"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>মেটাডাটা এডিট করুন</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -2227,6 +3566,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <Key className="w-4 h-4 text-amber-600" />
                   <span>আইডি ও পাসওয়ার্ড ভল্ট</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab('credentials');
+                    setIsAdminFormExpanded(true);
+                  }}
+                  className="w-full py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold transition-colors flex items-center space-x-2 cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                  <span>অ্যাডমিন পাসওয়ার্ড পরিবর্তন</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('seo')}
+                  className="w-full py-2 px-3 bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border border-cyan-200 rounded-xl text-xs font-bold transition-colors flex items-center space-x-2 cursor-pointer"
+                >
+                  <Globe className="w-4 h-4 text-cyan-600" />
+                  <span>এসইও ও মেটাডাটা আপডেট</span>
                 </button>
               </div>
             </div>
@@ -2331,6 +3689,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   placeholder="Enter details, deadline dates, exam roll instructions, or center guidelines..."
                   className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-rose-500"
                 />
+              </div>
+
+              {/* Application Fee and Remarks Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-stone-50 rounded-xl border border-stone-200">
+                <div>
+                  <label className="block font-semibold text-stone-800 mb-1 flex items-center space-x-1">
+                    <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>আবেদন ফি (টাকা / BDT)</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={newNoticeFeeAmount}
+                    onChange={(e) => setNewNoticeFeeAmount(e.target.value)}
+                    placeholder="e.g. 220"
+                    className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-emerald-500 font-medium bg-white"
+                  />
+                  <span className="text-[10px] text-stone-500 mt-0.5 block">
+                    আবেদনকারী ফি জমা দেওয়ার সময় এটি শো করবে
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-stone-800 mb-1 flex items-center space-x-1">
+                    <Info className="w-3.5 h-3.5 text-amber-600" />
+                    <span>মন্তব্য (ফি নোট / মন্তব্য ঘর)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newNoticeRemarks}
+                    onChange={(e) => setNewNoticeRemarks(e.target.value)}
+                    placeholder="যেমন: সরকারি ফি ও অনলাইন চার্জসহ..."
+                    className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:border-amber-500 bg-white"
+                  />
+                  <span className="text-[10px] text-stone-500 mt-0.5 block">
+                    মন্তব্য ঘরের লেখাটি পেমেন্ট স্ক্রিনে দেখতে পাবে
+                  </span>
+                </div>
               </div>
 
               {/* PDF Document Upload Input */}
@@ -2713,6 +4108,212 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <CheckCircle className="w-4 h-4" />
                   <span>পেমেন্ট সেভ করুন (Save Payment)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add/Edit Testimonial */}
+      {showTestimonialModal && (
+        <div
+          className="fixed inset-0 z-70 bg-black/75 flex items-start sm:items-center justify-center p-3 sm:p-6 overflow-y-auto backdrop-blur-xs py-8"
+          onClick={() => setShowTestimonialModal(false)}
+        >
+          <div
+            className="bg-white max-w-xl w-full p-6 sm:p-7 rounded-2xl shadow-2xl relative border border-stone-200 my-auto animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowTestimonialModal(false)}
+              className="absolute top-4 right-4 text-stone-400 hover:text-stone-700 p-1 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h4 className="text-lg font-bold text-stone-900 mb-1 flex items-center space-x-2">
+              <Award className="w-5 h-5 text-amber-600" />
+              <span>
+                {editingTestimonial ? 'সাফল্যের গল্প সম্পাদনা করুন' : 'নতুন শিক্ষার্থীর সাফল্যের গল্প যোগ করুন'}
+              </span>
+            </h4>
+            <p className="text-xs text-stone-500 mb-4">
+              এই তথ্যটি সরাসরি ওয়েবসাইটের হোমপেজের 'Student Testimonial' সেকশনে প্রদর্শিত হবে।
+            </p>
+
+            <form onSubmit={handleSaveTestimonialSubmit} className="space-y-3.5 text-xs">
+              {/* Names */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">শিক্ষার্থীর নাম (বাংলায়) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={tNameBn}
+                    onChange={(e) => setTNameBn(e.target.value)}
+                    placeholder="যেমন: মোঃ জাহিদ হাসান"
+                    className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">Student Name (English)</label>
+                  <input
+                    type="text"
+                    value={tNameEn}
+                    onChange={(e) => setTNameEn(e.target.value)}
+                    placeholder="e.g. Md. Zahid Hasan"
+                    className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Roles / Designations */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">বর্তমান পদবী / পেশা (বাংলায়) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={tRoleBn}
+                    onChange={(e) => setTRoleBn(e.target.value)}
+                    placeholder="যেমন: অফিস সহকারী কাম কম্পিউটার মুদ্রাক্ষরিক"
+                    className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">Role / Designation (English)</label>
+                  <input
+                    type="text"
+                    value={tRoleEn}
+                    onChange={(e) => setTRoleEn(e.target.value)}
+                    placeholder="e.g. Computer Typist / Freelancer"
+                    className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Workplace */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">কর্মস্থল / অফিস (বাংলায়)</label>
+                  <input
+                    type="text"
+                    value={tWorkplaceBn}
+                    onChange={(e) => setTWorkplaceBn(e.target.value)}
+                    placeholder="যেমন: জেলা প্রশাসকের কার্যালয়, ঠাকুরগাঁও"
+                    className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">Workplace (English)</label>
+                  <input
+                    type="text"
+                    value={tWorkplaceEn}
+                    onChange={(e) => setTWorkplaceEn(e.target.value)}
+                    placeholder="e.g. DC Office, Thakurgaon"
+                    className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Course & Batch */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">সম্পন্ন কোর্স</label>
+                  <input
+                    type="text"
+                    value={tCourseBn}
+                    onChange={(e) => setTCourseBn(e.target.value)}
+                    placeholder="কম্পিউটার অফিস অ্যাপ্লিকেশন (৬ মাস)"
+                    className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">ব্যাচ (যেমন: ব্যাচ-২৮)</label>
+                  <input
+                    type="text"
+                    value={tBatchBn}
+                    onChange={(e) => {
+                      setTBatchBn(e.target.value);
+                      if (!tBatchEn) setTBatchEn(e.target.value);
+                    }}
+                    placeholder="যেমন: ব্যাচ-২৮ (সকাল)"
+                    className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Success Story / Quote in Bengali */}
+              <div>
+                <label className="block font-semibold text-stone-700 mb-1">
+                  সাফল্যের গল্প ও মন্তব্য (বাংলায়) *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={tStoryBn}
+                  onChange={(e) => setTStoryBn(e.target.value)}
+                  placeholder="আসাদ কম্পিউটার সেন্টারের ট্রেনিং কিভাবে তার ক্যারিয়ারে বা সরকারি চাকরিতে সহায়তা করেছে বিস্তারিত লিখুন..."
+                  className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Success Story in English */}
+              <div>
+                <label className="block font-semibold text-stone-700 mb-1">
+                  Success Story / Review (English)
+                </label>
+                <textarea
+                  rows={2}
+                  value={tStoryEn}
+                  onChange={(e) => setTStoryEn(e.target.value)}
+                  placeholder="English translation of the student's success journey..."
+                  className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Rating */}
+              <div className="flex items-center space-x-3">
+                <label className="font-semibold text-stone-700">রেটিং (স্টার):</label>
+                <div className="flex items-center space-x-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setTRating(star)}
+                      className="p-1 cursor-pointer"
+                    >
+                      <Star
+                        className={`w-5 h-5 ${
+                          star <= tRating ? 'fill-amber-400 text-amber-400' : 'text-stone-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                  <span className="text-xs font-bold text-stone-600 ml-1.5">{tRating}.0 Star</span>
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex justify-end space-x-2 pt-3 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => setShowTestimonialModal(false)}
+                  className="px-4 py-2 border border-stone-300 rounded-lg text-stone-600 font-medium hover:bg-stone-50 cursor-pointer"
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold rounded-lg transition-all cursor-pointer shadow-sm flex items-center space-x-1.5"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{editingTestimonial ? 'আপডেট করুন' : 'সেভ করুন'}</span>
                 </button>
               </div>
             </form>

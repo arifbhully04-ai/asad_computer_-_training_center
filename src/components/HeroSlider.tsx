@@ -38,16 +38,16 @@ const baseSlides = [
   },
   {
     id: 3,
-    titleEn: 'All Online Application & Digital Services',
-    titleBn: 'সকল অনলাইন আবেদন ও ডিজিটাল সেবা',
+    titleEn: 'Digital Land Services & Online Application Desk',
+    titleBn: 'ডিজিটাল ভূমি সেবা ও সকল অনলাইন আবেদন',
     subtitleEn:
-      'Fast, accurate, and hassle-free online application services for government and private jobs, university & college admissions, passport, NID, and digital certificates.',
+      'Digital Land Services (E-Mutation, Khatian/Porcha, Khajna Tax Dakhila), all government and private job applications, university admissions, and e-passport services.',
     subtitleBn:
-      'সরকারি-বেসরকারি চাকরি, বিশ্ববিদ্যালয় ও কলেজ ভর্তি, পাসপোর্ট, এনআইডি ও ডিজিটাল সনদের দ্রুত ও নির্ভুল অনলাইন আবেদন সেবা।',
-    primaryCtaEn: 'APPLY ONLINE',
-    primaryCtaBn: 'অনলাইন আবেদন',
+      'জমি সংক্রান্ত সকল কাজ (ই-নামজারি, খতিয়ান/পর্চা, খাজনা দাখিলা), সরকারি-বেসরকারি চাকরি, বিশ্ববিদ্যালয় ভর্তি, এনআইডি ও পাসপোর্ট সেবা।',
+    primaryCtaEn: 'DIGITAL LAND SERVICES',
+    primaryCtaBn: 'ডিজিটাল ভূমি সেবা',
     secondaryCtaEn: 'VIEW ALL SERVICES',
-    secondaryCtaBn: 'সকল সেবা দেখুন',
+    secondaryCtaBn: 'সকল অনলাইন সেবা',
     image: '/src/assets/images/online_service_desk_1792824307618.jpg',
   },
 ];

@@ -21,6 +21,7 @@ interface NavbarProps {
   onOpenAdmission: () => void;
   onOpenJobPortal: () => void;
   onOpenLogin: (role?: LoginRole, mode?: 'login' | 'register') => void;
+  onOpenOnlineServices?: (serviceId?: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -29,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAdmission,
   onOpenJobPortal,
   onOpenLogin,
+  onOpenOnlineServices,
 }) => {
   const [coursesDropdownOpen, setCoursesDropdownOpen] = useState(false);
   const [loginDropdownOpen, setLoginDropdownOpen] = useState(false);
@@ -168,19 +170,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Desktop Right Nav Links: Online Services -> Login -> Contact -> Language Toggle */}
           <nav className="hidden md:flex items-center space-x-6 lg:space-x-8 flex-1 justify-start pl-6 lg:pr-4 lg:pl-10">
-            <a
-              href="#online-services"
-              onClick={(e) =>
-                handleNavClick(
-                  e,
-                  t('onlineServices'),
-                  t('onlineServicesDesc')
-                )
-              }
-              className="text-white/85 hover:text-white text-sm lg:text-[15px] font-normal tracking-wide transition-colors duration-200 relative py-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-white after:transition-all after:duration-300 hover:after:w-full whitespace-nowrap"
+            <button
+              onClick={() => {
+                if (onOpenOnlineServices) {
+                  onOpenOnlineServices();
+                } else {
+                  onSelectNavItem(t('onlineServices'), t('onlineServicesDesc'));
+                }
+              }}
+              className="text-white/85 hover:text-white text-sm lg:text-[15px] font-normal tracking-wide transition-colors duration-200 relative py-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-white after:transition-all after:duration-300 hover:after:w-full whitespace-nowrap cursor-pointer"
             >
               {t('onlineServices')}
-            </a>
+            </button>
 
             {/* Login Dropdown */}
             <div className="relative">
@@ -351,15 +352,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>{t('jobPortalNotice')}</span>
             </button>
 
-            <a
-              href="#online-services"
-              onClick={(e) =>
-                handleNavClick(e, t('onlineServices'), t('onlineServicesDesc'))
-              }
-              className="text-white/90 hover:text-white text-base py-1"
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (onOpenOnlineServices) {
+                  onOpenOnlineServices();
+                } else {
+                  onSelectNavItem(t('onlineServices'), t('onlineServicesDesc'));
+                }
+              }}
+              className="w-full text-white/90 hover:text-white text-base py-1 text-left flex items-center justify-between cursor-pointer"
             >
-              {t('onlineServices')}
-            </a>
+              <span>{t('onlineServices')}</span>
+              <span className="text-[11px] bg-emerald-600/80 text-white font-medium px-2 py-0.5 rounded">ভূমি ও অনলাইন</span>
+            </button>
 
             {/* Mobile Login & Registration Section */}
             <div className="pt-2 border-t border-white/10 space-y-2">

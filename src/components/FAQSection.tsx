@@ -21,6 +21,7 @@ export interface FAQItem {
   answerBn: string;
   answerEn: string;
   highlights?: string[];
+  highlightsEn?: string[];
 }
 
 export interface FAQSectionProps {
@@ -448,7 +449,7 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
                           {/* Highlight Bullets */}
                           {faq.highlights && faq.highlights.length > 0 && (
                             <div className="pt-2 flex flex-wrap gap-2">
-                              {(language === 'bn' ? faq.highlights : (faq.highlightsEn || faq.highlights)).map((h, idx) => (
+                              {(language === 'bn' ? faq.highlights : (faq.highlightsEn || faq.highlights))?.map((h: string, idx: number) => (
                                 <span
                                   key={idx}
                                   className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-stone-50 border border-stone-200 text-stone-700 text-[11px] font-medium"

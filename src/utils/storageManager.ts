@@ -576,6 +576,7 @@ export const DEFAULT_SEO_CONFIG: WebsiteSeoConfig = {
   ogDescription: 'Certified Computer Training & Complete Digital Land / Online Application Services in Bottola, Bhully Bazar, Thakurgaon.',
   canonicalUrl: 'https://asadcomputer.com',
   robots: 'index, follow',
+  googleSiteVerification: 'eiwFrdm4YEC3f3-KPHCYLrKLy2vCJrSl3Qyiqp9pOZ8',
   lastUpdated: '2026-01-01T00:00:00.000Z',
 };
 
@@ -600,6 +601,11 @@ export const applyWebsiteSeo = (config: WebsiteSeoConfig): void => {
     }
     el.setAttribute('content', content);
   };
+
+  // Google Search Console Verification Meta Tag
+  if (config.googleSiteVerification) {
+    setMeta('name', 'google-site-verification', config.googleSiteVerification);
+  }
 
   // Standard Meta Tags
   if (config.metaDescription) {
@@ -710,6 +716,7 @@ export const loadPersistentSeoConfig = (): WebsiteSeoConfig => {
             ogDescription: parsed.ogDescription || parsed.metaDescription,
             canonicalUrl: parsed.canonicalUrl || DEFAULT_SEO_CONFIG.canonicalUrl,
             robots: parsed.robots || DEFAULT_SEO_CONFIG.robots,
+            googleSiteVerification: parsed.googleSiteVerification || DEFAULT_SEO_CONFIG.googleSiteVerification,
             lastUpdated: parsed.lastUpdated || new Date().toISOString(),
           };
         }

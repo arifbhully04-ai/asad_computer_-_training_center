@@ -228,6 +228,7 @@ export interface WebsiteSeoConfig {
   ogDescription?: string;
   canonicalUrl?: string;
   robots?: string;
+  googleSiteVerification?: string;
   lastUpdated?: string;
 }
 

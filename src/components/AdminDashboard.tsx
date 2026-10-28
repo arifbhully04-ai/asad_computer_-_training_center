@@ -222,6 +222,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [seoAuthor, setSeoAuthor] = useState(activeSeo.author || DEFAULT_SEO_CONFIG.author || 'Md. Asaduzzaman');
   const [seoCanonicalUrl, setSeoCanonicalUrl] = useState(activeSeo.canonicalUrl || DEFAULT_SEO_CONFIG.canonicalUrl || 'https://asadcomputer.com');
   const [seoRobots, setSeoRobots] = useState(activeSeo.robots || 'index, follow');
+  const [seoGoogleVerification, setSeoGoogleVerification] = useState(
+    activeSeo.googleSiteVerification || DEFAULT_SEO_CONFIG.googleSiteVerification || 'eiwFrdm4YEC3f3-KPHCYLrKLy2vCJrSl3Qyiqp9pOZ8'
+  );
   const [seoPreviewTab, setSeoPreviewTab] = useState<'google' | 'social' | 'schema'>('google');
   const [seoToast, setSeoToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -234,6 +237,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (propSeoConfig.author) setSeoAuthor(propSeoConfig.author);
       if (propSeoConfig.canonicalUrl) setSeoCanonicalUrl(propSeoConfig.canonicalUrl);
       if (propSeoConfig.robots) setSeoRobots(propSeoConfig.robots);
+      if (propSeoConfig.googleSiteVerification) setSeoGoogleVerification(propSeoConfig.googleSiteVerification);
     }
   }, [propSeoConfig]);
 
@@ -258,6 +262,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       author: seoAuthor.trim(),
       canonicalUrl: seoCanonicalUrl.trim(),
       robots: seoRobots,
+      googleSiteVerification: seoGoogleVerification.trim(),
       ogTitle: seoTitle.trim(),
       ogDescription: seoDescription.trim(),
       lastUpdated: new Date().toISOString(),
@@ -288,6 +293,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setSeoAuthor(DEFAULT_SEO_CONFIG.author || 'Md. Asaduzzaman');
     setSeoCanonicalUrl(DEFAULT_SEO_CONFIG.canonicalUrl || 'https://asadcomputer.com');
     setSeoRobots('index, follow');
+    setSeoGoogleVerification(DEFAULT_SEO_CONFIG.googleSiteVerification || 'eiwFrdm4YEC3f3-KPHCYLrKLy2vCJrSl3Qyiqp9pOZ8');
     setSeoToast({
       type: 'success',
       text: 'প্রস্তাবিত ডিফল্ট এসইও টেমপ্লেট লোড হয়েছে। সেভ করতে নিচের "সেভ করুন" বাটনে ক্লিক করুন।',
@@ -3358,6 +3364,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         </label>
                       </div>
+                    </div>
+
+                    {/* Field 7: Google Search Console Verification Meta Tag */}
+                    <div className="space-y-1.5 p-4 rounded-xl bg-gradient-to-br from-emerald-50/60 to-cyan-50/60 border border-emerald-200/80">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-stone-800 flex items-center space-x-1.5">
+                          <Globe className="w-4 h-4 text-emerald-600" />
+                          <span>গুগল সার্চ কনসোল ভেরিফিকেশন কোড (Google Site Verification Token)</span>
+                        </label>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">
+                          Google Search Console Active
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        value={seoGoogleVerification}
+                        onChange={(e) => setSeoGoogleVerification(e.target.value)}
+                        placeholder="eiwFrdm4YEC3f3-KPHCYLrKLy2vCJrSl3Qyiqp9pOZ8"
+                        className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-white border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none transition-all font-mono text-stone-800 shadow-2xs"
+                      />
+                      <p className="text-[11px] text-stone-600 leading-relaxed">
+                        গুগল সার্চ কনসোলে সাইট ভেরিফাই করার জন্য <code className="px-1.5 py-0.5 rounded bg-white text-emerald-700 font-mono text-[10px] border border-stone-200">&lt;meta name="google-site-verification" content="..." /&gt;</code> স্বয়ংক্রিয়ভাবে ওয়েবসাইটের <code className="font-mono text-[10px]">&lt;head&gt;</code> সেকশনে যুক্ত রয়েছে।
+                      </p>
                     </div>
 
                     {/* Submit & Reset Bar */}

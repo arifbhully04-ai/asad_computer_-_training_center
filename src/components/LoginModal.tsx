@@ -21,6 +21,7 @@ import {
 import { StudentAccount, ApplicantAccount, PasswordResetRequest, AdminCredentials } from '../types.ts';
 import { loadPersistentStudents, loadPersistentAdminCredentials } from '../utils/storageManager.ts';
 import { ForgotPasswordModal } from './ForgotPasswordModal.tsx';
+import loginHandshakeImg from '../assets/images/login_interview_handshake_1792830731033.jpg';
 
 export type LoginRole = 'student' | 'applicant' | 'institute';
 
@@ -392,12 +393,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         </button>
 
         {/* Left Side: Photo Background with Headline & Subtitle matching reference image */}
-        <div className="relative flex-1 p-8 sm:p-12 flex flex-col justify-between overflow-hidden min-h-[260px] md:min-h-auto">
+        <div className="relative flex-1 p-8 sm:p-12 flex flex-col justify-between overflow-hidden min-h-[260px] md:min-h-auto bg-stone-900">
           <img
-            src="/src/assets/images/login_interview_handshake_1792830731033.jpg"
+            src={loginHandshakeImg}
             alt="Business handshake"
-            referrerPolicy="no-referrer"
-            className="absolute inset-0 w-full h-full object-cover filter brightness-[0.52] contrast-[1.1]"
+            className="absolute inset-0 w-full h-full object-cover filter brightness-[0.55] contrast-[1.1]"
+            onError={(e) => {
+              if (e.currentTarget.src !== '/assets/images/login_interview_handshake_1792830731033.jpg') {
+                e.currentTarget.src = '/assets/images/login_interview_handshake_1792830731033.jpg';
+              }
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60" />
 

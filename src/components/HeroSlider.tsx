@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { SlideData } from '../types.ts';
 import { useLanguage } from '../context/LanguageContext.tsx';
+import computerLabImg from '../assets/images/computer_training_lab_1792824307233.jpg';
+import campusImg from '../assets/images/university_campus_hero_1792823786427.jpg';
+import onlineServiceDeskImg from '../assets/images/online_service_desk_1792824307618.jpg';
 
 interface HeroSliderProps {
   onCtaClick: (type: 'programs' | 'learn-more', slide: SlideData) => void;
@@ -20,7 +23,8 @@ const baseSlides = [
     primaryCtaBn: 'কোর্সসমূহ দেখুন',
     secondaryCtaEn: 'ONLINE SERVICES',
     secondaryCtaBn: 'অনলাইন সেবা',
-    image: '/src/assets/images/computer_training_lab_1792824307233.jpg',
+    image: computerLabImg,
+    fallbackUrl: '/assets/images/computer_training_lab_1792824307233.jpg',
   },
   {
     id: 2,
@@ -34,7 +38,8 @@ const baseSlides = [
     primaryCtaBn: 'কোর্সে ভর্তি হন',
     secondaryCtaEn: 'COURSE SYLLABUS',
     secondaryCtaBn: 'কোর্স সিলেবাস',
-    image: '/src/assets/images/computer_training_lab_1792824307233.jpg',
+    image: campusImg,
+    fallbackUrl: '/assets/images/university_campus_hero_1792823786427.jpg',
   },
   {
     id: 3,
@@ -48,7 +53,8 @@ const baseSlides = [
     primaryCtaBn: 'ডিজিটাল ভূমি সেবা',
     secondaryCtaEn: 'VIEW ALL SERVICES',
     secondaryCtaBn: 'সকল অনলাইন সেবা',
-    image: '/src/assets/images/online_service_desk_1792824307618.jpg',
+    image: onlineServiceDeskImg,
+    fallbackUrl: '/assets/images/online_service_desk_1792824307618.jpg',
   },
 ];
 
@@ -64,7 +70,6 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({ onCtaClick }) => {
     secondaryCta: language === 'bn' ? s.secondaryCtaBn : s.secondaryCtaEn,
     image: s.image,
   }));
-
 
   const prevSlide = () => {
     setCurrentSlideIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
@@ -82,20 +87,27 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({ onCtaClick }) => {
   }, [currentSlideIndex]);
 
   const currentSlide = slides[currentSlideIndex];
+  const activeBaseSlide = baseSlides[currentSlideIndex];
 
   return (
-    <section className="relative w-full h-[620px] sm:h-[680px] lg:h-[760px] flex items-center justify-center overflow-hidden bg-stone-900">
-      {/* Background Image with smooth transition */}
+    <section className="relative w-full h-[620px] sm:h-[680px] lg:h-[760px] flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-stone-900 to-cyan-950">
+      {/* Background Image with smooth transition and fallback */}
       <div className="absolute inset-0 z-0">
         <img
+          key={currentSlide.id}
           src={currentSlide.image}
           alt={currentSlide.title}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover object-center filter brightness-[0.62] contrast-[1.08] transition-all duration-700 ease-out"
+          className="w-full h-full object-cover object-center filter brightness-[0.70] contrast-[1.08] transition-all duration-700 ease-out"
+          onError={(e) => {
+            const fallback = activeBaseSlide.fallbackUrl;
+            if (e.currentTarget.src !== fallback && !e.currentTarget.src.endsWith(fallback)) {
+              e.currentTarget.src = fallback;
+            }
+          }}
         />
         {/* Darkening Scrim Overlays for legibility */}
-        <div className="absolute inset-0 bg-black/50" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/55" />
+        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/40" />
       </div>
 
       {/* Left Navigation Arrow */}

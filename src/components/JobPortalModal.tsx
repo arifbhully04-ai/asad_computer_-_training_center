@@ -23,6 +23,7 @@ import {
 import { NoticeItem, StudentAccount, ApplicantAccount } from '../types.ts';
 import { LoginRole, LoginModal } from './LoginModal.tsx';
 import { CircularViewerModal } from './CircularViewerModal.tsx';
+import jobPortalHeroImg from '../assets/images/job_portal_hero_1792826919302.jpg';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 
 interface JobPortalModalProps {
@@ -256,10 +257,14 @@ export const JobPortalModal: React.FC<JobPortalModalProps> = ({
           <div className="relative min-h-[300px] sm:min-h-[340px] flex flex-col items-center justify-center text-center px-6 sm:px-12 py-10 sm:py-14 overflow-hidden bg-stone-900">
             {/* Background image */}
             <img
-              src="/src/assets/images/job_portal_hero_1792826919302.jpg"
+              src={jobPortalHeroImg}
               alt="Office Team Collaborating"
-              referrerPolicy="no-referrer"
-              className="absolute inset-0 w-full h-full object-cover filter brightness-[0.40] contrast-[1.1]"
+              className="absolute inset-0 w-full h-full object-cover filter brightness-[0.45] contrast-[1.1]"
+              onError={(e) => {
+                if (e.currentTarget.src !== '/assets/images/job_portal_hero_1792826919302.jpg') {
+                  e.currentTarget.src = '/assets/images/job_portal_hero_1792826919302.jpg';
+                }
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80" />
 

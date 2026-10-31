@@ -44,6 +44,7 @@ import {
 import { NoticeItem, StudentAccount, ApplicantAccount, JobApplication, StudentPaymentRecord, PasswordResetRequest, StudentTestimonial, AdminCredentials, WebsiteSeoConfig } from '../types.ts';
 import { NoticePdfViewerModal } from './NoticePdfViewerModal.tsx';
 import { StudentProfileModal } from './StudentProfileModal.tsx';
+import { StudentAdmissionCopyModal } from './StudentAdmissionCopyModal.tsx';
 import { ApplicantProfileModal } from './ApplicantProfileModal.tsx';
 import { ApplicantBioDataModal } from './ApplicantBioDataModal.tsx';
 import { ApplicationStatusBadge, isApplicationCompleted } from './ApplicationStatusBadge.tsx';
@@ -497,14 +498,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Student Modals & Editing
   const [selectedStudentForEdit, setSelectedStudentForEdit] = useState<StudentAccount | null>(null);
+  const [selectedStudentForAdmissionCopy, setSelectedStudentForAdmissionCopy] = useState<StudentAccount | null>(null);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentRoll, setNewStudentRoll] = useState('');
   const [newStudentCourse, setNewStudentCourse] = useState('Computer Office Application (6 Months)');
   const [newStudentBatch, setNewStudentBatch] = useState('Morning (10 AM - 12 PM)');
   const [newStudentPhone, setNewStudentPhone] = useState('');
-  const [newStudentFee, setNewStudentFee] = useState<number>(4000);
-  const [newStudentPaid, setNewStudentPaid] = useState<number>(1500);
+  const [newStudentFee, setNewStudentFee] = useState<number>(3500);
+  const [newStudentPaid, setNewStudentPaid] = useState<number>(0);
 
   // Quick Student Payment Modal State
   const [selectedStudentForQuickPay, setSelectedStudentForQuickPay] = useState<StudentAccount | null>(null);
@@ -771,7 +773,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     e.preventDefault();
     if (!newStudentName.trim()) return;
 
-    const total = newStudentFee || 4000;
+    const total = newStudentFee || 3500;
     const paid = newStudentPaid || 0;
     const due = Math.max(0, total - paid);
 
@@ -802,8 +804,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setNewStudentName('');
     setNewStudentRoll('');
     setNewStudentPhone('');
-    setNewStudentFee(4000);
-    setNewStudentPaid(1500);
+    setNewStudentFee(3500);
+    setNewStudentPaid(0);
     setShowAddStudentModal(false);
   };
 
@@ -1752,6 +1754,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             >
                               <Edit className="w-3 h-3" />
                               <span>Edit / Password</span>
+                            </button>
+
+                            {/* Official Admission Copy & PDF Download */}
+                            <button
+                              onClick={() => setSelectedStudentForAdmissionCopy(student)}
+                              className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded font-bold text-[11px] transition-colors cursor-pointer border border-sky-200 inline-flex items-center space-x-1"
+                              title="শিক্ষার্থীর পূরণকৃত ভর্তি ফরমের কপি দেখুন ও পিডিএফ ডাউনলোড করুন"
+                            >
+                              <FileText className="w-3 h-3 text-sky-600" />
+                              <span>ভর্তি ফরম / প্রিন্ট</span>
                             </button>
 
                             <button
@@ -2875,6 +2887,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[10px] transition-colors cursor-pointer border border-blue-200"
                                       >
                                         এডিট / পাসওয়ার্ড
+                                      </button>
+                                      <button
+                                        onClick={() => setSelectedStudentForAdmissionCopy(cred.rawStudent)}
+                                        className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded font-bold text-[10px] transition-colors cursor-pointer border border-sky-200"
+                                        title="শিক্ষার্থীর ভর্তি ফরমের অফিশিয়াল কপি ও পিডিএফ প্রিন্ট করুন"
+                                      >
+                                        ভর্তি ফরম / PDF
                                       </button>
                                       <button
                                         onClick={() => handleDeleteStudentClick(cred.rawStudent)}
@@ -4024,8 +4043,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) => {
                     const c = e.target.value;
                     setNewStudentCourse(c);
-                    if (c.includes('6 Months')) setNewStudentFee(4000);
-                    else setNewStudentFee(2500);
+                    setNewStudentFee(3500);
                   }}
                   className="w-full p-2 border border-stone-300 rounded-lg outline-none bg-stone-50"
                 >
@@ -4117,6 +4135,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         student={selectedStudentForEdit}
         onSaveStudent={handleSaveStudentFromModal}
         onDeleteStudent={(id) => handleDeleteStudentClick(id)}
+      />
+
+      {/* Student Admission Official Copy / Printable PDF Modal */}
+      <StudentAdmissionCopyModal
+        isOpen={Boolean(selectedStudentForAdmissionCopy)}
+        onClose={() => setSelectedStudentForAdmissionCopy(null)}
+        student={selectedStudentForAdmissionCopy}
       />
 
       {/* Applicant Quick Credentials & Password Reset Modal */}

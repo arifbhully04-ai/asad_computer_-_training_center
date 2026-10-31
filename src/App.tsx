@@ -45,6 +45,10 @@ import {
   loadPersistentSeoConfig,
   savePersistentSeoConfig,
   applyWebsiteSeo,
+  recordDeletedNoticeId,
+  recordDeletedStudent,
+  recordDeletedApplicant,
+  recordDeletedJobAppId,
 } from './utils/storageManager.ts';
 
 const defaultNoticesList: NoticeItem[] = [
@@ -332,10 +336,10 @@ export default function App() {
     loadPersistentApplicants(defaultApplicantsList)
   );
 
-  const [currentStudentId, setCurrentStudentId] = useState<number>(() =>
+  const [currentStudentId, setCurrentStudentId] = useState<number | undefined>(() =>
     savedSession.currentStudentId || 1
   );
-  const [currentApplicantId, setCurrentApplicantId] = useState<number>(() =>
+  const [currentApplicantId, setCurrentApplicantId] = useState<number | undefined>(() =>
     savedSession.currentApplicantId || (defaultApplicantsList[0]?.id || 101)
   );
 
@@ -446,6 +450,7 @@ export default function App() {
   };
 
   const handleDeleteNotice = (id: number) => {
+    recordDeletedNoticeId(id);
     setNotices((prev) => {
       const next = prev.filter((n) => n.id !== id);
       savePersistentNotices(next);
@@ -486,11 +491,17 @@ export default function App() {
   };
 
   const handleDeleteStudent = (id: number) => {
+    const studentToDelete = students.find((s) => s.id === id);
+    recordDeletedStudent(id, studentToDelete?.phone, studentToDelete?.rollNo);
     setStudents((prev) => {
       const next = prev.filter((s) => s.id !== id);
       savePersistentStudents(next);
       return next;
     });
+    if (currentStudentId === id) {
+      setCurrentStudentId(undefined);
+      setCurrentView('home');
+    }
   };
 
   // Handlers for Applicants
@@ -647,11 +658,40 @@ export default function App() {
   };
 
   const handleDeleteJobApplication = (id: number) => {
-    setJobApplications((prev) => prev.filter((a) => a.id !== id));
+    recordDeletedJobAppId(id);
+    setJobApplications((prev) => {
+      const next = prev.filter((a) => a.id !== id);
+      savePersistentJobApplications(next);
+      return next;
+    });
+    setApplicants((prev) => {
+      const next = prev.map((applicant) => ({
+        ...applicant,
+        applications: (applicant.applications || []).filter((app) => app.id !== id),
+      }));
+      savePersistentApplicants(next);
+      return next;
+    });
   };
 
   const handleDeleteApplicant = (id: number) => {
-    setApplicants((prev) => prev.filter((a) => a.id !== id));
+    const applicantToDelete = applicants.find((a) => a.id === id);
+    recordDeletedApplicant(id, applicantToDelete?.phone, applicantToDelete?.email);
+    setApplicants((prev) => {
+      const next = prev.filter((a) => a.id !== id);
+      savePersistentApplicants(next);
+      return next;
+    });
+    // Also remove all associated job applications for this applicant
+    setJobApplications((prev) => {
+      const next = prev.filter((app) => app.applicantId !== id);
+      savePersistentJobApplications(next);
+      return next;
+    });
+    if (currentApplicantId === id) {
+      setCurrentApplicantId(undefined);
+      setCurrentView('home');
+    }
   };
 
   const handleSelectNavItem = (item: string, details?: string) => {

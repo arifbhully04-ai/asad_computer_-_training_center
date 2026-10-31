@@ -78,18 +78,140 @@ const cleanPhone = (p?: string): string => {
   return digits;
 };
 
+// Deleted entity tombstone keys to guarantee that deleted notices and profiles stay deleted forever
+const DELETED_NOTICES_KEY = 'actc_deleted_notices_ids';
+const DELETED_STUDENTS_KEY = 'actc_deleted_students_ids';
+const DELETED_APPLICANTS_KEY = 'actc_deleted_applicants_ids';
+const DELETED_JOB_APPS_KEY = 'actc_deleted_job_apps_ids';
+
+export const getDeletedNoticeIds = (): Set<number> => {
+  try {
+    const raw = localStorage.getItem(DELETED_NOTICES_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const recordDeletedNoticeId = (id: number): void => {
+  try {
+    const set = getDeletedNoticeIds();
+    set.add(id);
+    localStorage.setItem(DELETED_NOTICES_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+export const getDeletedStudentKeys = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(DELETED_STUDENTS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const recordDeletedStudent = (id: number | string, phone?: string, rollNo?: string): void => {
+  try {
+    const set = getDeletedStudentKeys();
+    set.add(String(id));
+    if (phone) {
+      const cp = cleanPhone(phone);
+      if (cp) set.add(cp);
+    }
+    if (rollNo) {
+      set.add(rollNo.toLowerCase());
+    }
+    localStorage.setItem(DELETED_STUDENTS_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+export const getDeletedApplicantKeys = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(DELETED_APPLICANTS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const recordDeletedApplicant = (id: number | string, phone?: string, email?: string): void => {
+  try {
+    const set = getDeletedApplicantKeys();
+    set.add(String(id));
+    if (phone) {
+      const cp = cleanPhone(phone);
+      if (cp) set.add(cp);
+    }
+    if (email) {
+      set.add(email.toLowerCase());
+    }
+    localStorage.setItem(DELETED_APPLICANTS_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+export const getDeletedJobAppIds = (): Set<number> => {
+  try {
+    const raw = localStorage.getItem(DELETED_JOB_APPS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const recordDeletedJobAppId = (id: number): void => {
+  try {
+    const set = getDeletedJobAppIds();
+    set.add(id);
+    localStorage.setItem(DELETED_JOB_APPS_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+export const clearAllDeletedTombstones = (): void => {
+  try {
+    localStorage.removeItem(DELETED_NOTICES_KEY);
+    localStorage.removeItem(DELETED_STUDENTS_KEY);
+    localStorage.removeItem(DELETED_APPLICANTS_KEY);
+    localStorage.removeItem(DELETED_JOB_APPS_KEY);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 /**
  * Load and deep-merge applicants from ALL possible legacy and current storage keys.
- * User-created accounts and custom passwords are STRICTLY preserved and never overridden.
+ * Respects deleted accounts and never resurrects them.
  */
 export const loadPersistentApplicants = (defaultList: ApplicantAccount[]): ApplicantAccount[] => {
+  const deletedKeys = getDeletedApplicantKeys();
   const mergedMap = new Map<string, ApplicantAccount>();
 
-  // 1. First add default applicants
-  defaultList.forEach((acc) => {
-    const key = acc.phone ? cleanPhone(acc.phone) : String(acc.id);
-    mergedMap.set(key, acc);
-  });
+  // Check if any applicant storage key already has initialized data
+  let hasStoredData = false;
+  for (const storageKey of APPLICANT_STORAGE_KEYS) {
+    const raw = localStorage.getItem(storageKey);
+    if (raw && raw !== '[]') {
+      hasStoredData = true;
+      break;
+    }
+  }
+
+  // 1. Only add default applicants on very first initialization (when no storage exists)
+  if (!hasStoredData) {
+    defaultList.forEach((acc) => {
+      const key = acc.phone ? cleanPhone(acc.phone) : String(acc.id);
+      if (!deletedKeys.has(String(acc.id)) && !deletedKeys.has(key)) {
+        mergedMap.set(key, acc);
+      }
+    });
+  }
 
   // 2. Scan all storage keys and merge user data
   APPLICANT_STORAGE_KEYS.forEach((storageKey) => {
@@ -100,15 +222,26 @@ export const loadPersistentApplicants = (defaultList: ApplicantAccount[]): Appli
         if (Array.isArray(parsed)) {
           parsed.forEach((item: ApplicantAccount) => {
             if (item && (item.phone || item.email || item.applicantName || item.id)) {
-              const primaryKey = item.phone ? cleanPhone(item.phone) : (item.email?.toLowerCase() || String(item.id));
-              
-              // If account already exists in map, merge prioritizing user's stored data and password
+              const phoneKey = item.phone ? cleanPhone(item.phone) : '';
+              const emailKey = item.email ? item.email.toLowerCase() : '';
+              const idKey = String(item.id);
+
+              // Discard if explicitly marked deleted
+              if (
+                deletedKeys.has(idKey) ||
+                (phoneKey && deletedKeys.has(phoneKey)) ||
+                (emailKey && deletedKeys.has(emailKey))
+              ) {
+                return;
+              }
+
+              const primaryKey = phoneKey || emailKey || idKey;
+
               if (mergedMap.has(primaryKey)) {
                 const existing = mergedMap.get(primaryKey)!;
                 mergedMap.set(primaryKey, {
                   ...existing,
                   ...item,
-                  // Keep user's custom password if exists
                   password: item.password || existing.password || 'applicantpass',
                   applicantName: item.applicantName || existing.applicantName,
                   isAccountCompleted: item.isAccountCompleted ?? existing.isAccountCompleted,
@@ -127,8 +260,6 @@ export const loadPersistentApplicants = (defaultList: ApplicantAccount[]): Appli
   });
 
   const result = Array.from(mergedMap.values());
-
-  // Save merged master list back into ALL keys for future resilience
   savePersistentApplicants(result);
   return result;
 };
@@ -154,16 +285,32 @@ export const savePersistentApplicants = (applicants: ApplicantAccount[]): void =
 
 /**
  * Load and deep-merge students across all storage keys.
- * Preserves user-created passwords and accounts permanently across all updates and reloads.
+ * Respects deleted accounts and never resurrects them.
  */
 export const loadPersistentStudents = (defaultList: StudentAccount[]): StudentAccount[] => {
+  const deletedKeys = getDeletedStudentKeys();
   const mergedMap = new Map<string, StudentAccount>();
 
-  defaultList.forEach((s) => {
-    const key = cleanPhone(s.phone) || (s.rollNo ? s.rollNo.toLowerCase() : String(s.id));
-    mergedMap.set(key, s);
-  });
+  let hasStoredData = false;
+  for (const storageKey of STUDENT_STORAGE_KEYS) {
+    const raw = localStorage.getItem(storageKey);
+    if (raw && raw !== '[]') {
+      hasStoredData = true;
+      break;
+    }
+  }
 
+  // 1. Only add default students if storage has never been initialized
+  if (!hasStoredData) {
+    defaultList.forEach((s) => {
+      const key = cleanPhone(s.phone) || (s.rollNo ? s.rollNo.toLowerCase() : String(s.id));
+      if (!deletedKeys.has(String(s.id)) && !deletedKeys.has(key)) {
+        mergedMap.set(key, s);
+      }
+    });
+  }
+
+  // 2. Scan all storage keys and merge user data
   STUDENT_STORAGE_KEYS.forEach((storageKey) => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -174,15 +321,23 @@ export const loadPersistentStudents = (defaultList: StudentAccount[]): StudentAc
             if (item && (item.phone || item.rollNo || item.id)) {
               const phoneKey = cleanPhone(item.phone);
               const rollKey = item.rollNo ? item.rollNo.toLowerCase() : '';
-              
-              // Find if already keyed either by phone or roll
+              const idKey = String(item.id);
+
+              if (
+                deletedKeys.has(idKey) ||
+                (phoneKey && deletedKeys.has(phoneKey)) ||
+                (rollKey && deletedKeys.has(rollKey))
+              ) {
+                return; // Discard deleted student
+              }
+
               let matchKey = '';
               if (phoneKey && mergedMap.has(phoneKey)) {
                 matchKey = phoneKey;
               } else if (rollKey && mergedMap.has(rollKey)) {
                 matchKey = rollKey;
               } else {
-                matchKey = phoneKey || rollKey || String(item.id);
+                matchKey = phoneKey || rollKey || idKey;
               }
 
               if (mergedMap.has(matchKey)) {
@@ -190,7 +345,6 @@ export const loadPersistentStudents = (defaultList: StudentAccount[]): StudentAc
                 mergedMap.set(matchKey, {
                   ...existing,
                   ...item,
-                  // STRICTLY keep user's created password
                   password: item.password || existing.password || 'password123',
                   name: item.name || existing.name,
                   course: item.course || existing.course,
@@ -233,11 +387,25 @@ export const savePersistentStudents = (students: StudentAccount[]): void => {
  * Load and deep-merge job applications across all storage keys.
  */
 export const loadPersistentJobApplications = (defaultList: JobApplication[]): JobApplication[] => {
+  const deletedIds = getDeletedJobAppIds();
   const mergedMap = new Map<number | string, JobApplication>();
 
-  defaultList.forEach((app) => {
-    mergedMap.set(app.id, app);
-  });
+  let hasStoredData = false;
+  for (const storageKey of JOB_APP_STORAGE_KEYS) {
+    const raw = localStorage.getItem(storageKey);
+    if (raw && raw !== '[]') {
+      hasStoredData = true;
+      break;
+    }
+  }
+
+  if (!hasStoredData) {
+    defaultList.forEach((app) => {
+      if (!deletedIds.has(app.id)) {
+        mergedMap.set(app.id, app);
+      }
+    });
+  }
 
   JOB_APP_STORAGE_KEYS.forEach((storageKey) => {
     try {
@@ -246,7 +414,7 @@ export const loadPersistentJobApplications = (defaultList: JobApplication[]): Jo
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           parsed.forEach((item: JobApplication) => {
-            if (item && item.id) {
+            if (item && item.id && !deletedIds.has(item.id)) {
               mergedMap.set(item.id, item);
             }
           });
@@ -278,12 +446,28 @@ export const savePersistentJobApplications = (jobApplications: JobApplication[])
 };
 
 /**
- * Load notices across all storage keys.
+ * Load notices across all storage keys, respecting deleted notice IDs.
  */
 export const loadPersistentNotices = (defaultList: NoticeItem[]): NoticeItem[] => {
+  const deletedIds = getDeletedNoticeIds();
   const mergedMap = new Map<number, NoticeItem>();
 
-  defaultList.forEach((n) => mergedMap.set(n.id, n));
+  let hasStoredData = false;
+  for (const storageKey of NOTICE_STORAGE_KEYS) {
+    const raw = localStorage.getItem(storageKey);
+    if (raw && raw !== '[]') {
+      hasStoredData = true;
+      break;
+    }
+  }
+
+  if (!hasStoredData) {
+    defaultList.forEach((n) => {
+      if (!deletedIds.has(n.id)) {
+        mergedMap.set(n.id, n);
+      }
+    });
+  }
 
   NOTICE_STORAGE_KEYS.forEach((storageKey) => {
     try {
@@ -292,7 +476,7 @@ export const loadPersistentNotices = (defaultList: NoticeItem[]): NoticeItem[] =
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           parsed.forEach((item: NoticeItem) => {
-            if (item && item.id) {
+            if (item && item.id && !deletedIds.has(item.id)) {
               mergedMap.set(item.id, item);
             }
           });
@@ -824,6 +1008,8 @@ export const restoreDatabaseFromBackup = (
     if (!data || typeof data !== 'object') {
       return { success: false, error: 'অবৈধ ফাইল ফরম্যাট।' };
     }
+
+    clearAllDeletedTombstones();
 
     const restoredApplicants = Array.isArray(data.applicants) ? data.applicants : [];
     const restoredStudents = Array.isArray(data.students) ? data.students : [];

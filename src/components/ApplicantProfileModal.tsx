@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   CheckCircle,
+  Trash2,
 } from 'lucide-react';
 import { ApplicantAccount } from '../types.ts';
 
@@ -19,6 +20,7 @@ interface ApplicantProfileModalProps {
   onClose: () => void;
   applicant: ApplicantAccount | null;
   onSaveApplicant: (updatedApplicant: ApplicantAccount) => void;
+  onDeleteApplicant?: (id: number) => void;
 }
 
 export const ApplicantProfileModal: React.FC<ApplicantProfileModalProps> = ({
@@ -26,6 +28,7 @@ export const ApplicantProfileModal: React.FC<ApplicantProfileModalProps> = ({
   onClose,
   applicant,
   onSaveApplicant,
+  onDeleteApplicant,
 }) => {
   const [formData, setFormData] = useState<ApplicantAccount | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -206,21 +209,38 @@ export const ApplicantProfileModal: React.FC<ApplicantProfileModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-3 border-t border-stone-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-stone-300 rounded-lg text-stone-600 font-medium hover:bg-stone-50 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex items-center space-x-1.5 px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save Applicant Profile</span>
-            </button>
+          <div className="flex items-center justify-between pt-3 border-t border-stone-200">
+            {onDeleteApplicant && formData ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteApplicant(formData.id);
+                  onClose();
+                }}
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                title="আবেদনকারীর প্রোফাইল মুছে ফেলুন"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>প্রোফাইল মুছুন</span>
+              </button>
+            ) : <div />}
+
+            <div className="flex items-center space-x-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-stone-300 rounded-lg text-stone-600 font-medium hover:bg-stone-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex items-center space-x-1.5 px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save Applicant Profile</span>
+              </button>
+            </div>
           </div>
 
         </form>

@@ -129,6 +129,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [passwordRequests, setPasswordRequests] = useState<PasswordResetRequest[]>(() => loadPersistentPasswordRequests());
 
+  // In-app delete confirmation state
+  const [itemToDelete, setItemToDelete] = useState<{
+    type: 'notice' | 'student' | 'applicant' | 'jobApp' | 'testimonial';
+    id: number;
+    title: string;
+    subtitle?: string;
+  } | null>(null);
+
   const [localTestimonials, setLocalTestimonials] = useState<StudentTestimonial[]>(() =>
     loadPersistentTestimonials(DEFAULT_TESTIMONIALS)
   );
@@ -667,22 +675,94 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setAdminStatusToast(null), 3500);
   };
 
-  const handleDeleteTestimonialClick = (id: number) => {
-    if (onDeleteTestimonial) {
-      onDeleteTestimonial(id);
+  // Execution handler when admin confirms deletion in modal
+  const handleConfirmDelete = () => {
+    if (!itemToDelete) return;
+    const { type, id } = itemToDelete;
+
+    if (type === 'notice') {
+      if (onDeleteNotice) {
+        onDeleteNotice(id);
+      }
+      setLocalNotices((prev) => prev.filter((n) => n.id !== id));
+      setAdminStatusToast('নোটিশটি সফলভাবে মুছে ফেলা হয়েছে!');
+    } else if (type === 'student') {
+      if (onDeleteStudent) {
+        onDeleteStudent(id);
+      }
+      setLocalStudents((prev) => prev.filter((s) => s.id !== id));
+      if (selectedStudentForEdit?.id === id) {
+        setSelectedStudentForEdit(null);
+      }
+      setAdminStatusToast('শিক্ষার্থীর প্রোফাইল সফলভাবে মুছে ফেলা হয়েছে!');
+    } else if (type === 'applicant') {
+      if (onDeleteApplicant) {
+        onDeleteApplicant(id);
+      }
+      setLocalApplicants((prev) => prev.filter((a) => a.id !== id));
+      if (selectedApplicantForEdit?.id === id) {
+        setSelectedApplicantForEdit(null);
+      }
+      if (selectedApplicantForBioData?.id === id) {
+        setSelectedApplicantForBioData(null);
+      }
+      setAdminStatusToast('আবেদনকারীর প্রোফাইল ও বায়োডাটা সফলভাবে মুছে ফেলা হয়েছে!');
+    } else if (type === 'jobApp') {
+      if (onDeleteJobApplication) {
+        onDeleteJobApplication(id);
+      }
+      setAdminStatusToast('চাকুরীর আবেদনটি সফলভাবে মুছে ফেলা হয়েছে!');
+    } else if (type === 'testimonial') {
+      if (onDeleteTestimonial) {
+        onDeleteTestimonial(id);
+      }
+      const updatedList = testimonials.filter((t) => t.id !== id);
+      setLocalTestimonials(updatedList);
+      savePersistentTestimonials(updatedList);
+      setAdminStatusToast('সাফল্যের গল্প / রিভিউ মুছে ফেলা হয়েছে!');
     }
-    const updatedList = testimonials.filter((t) => t.id !== id);
-    setLocalTestimonials(updatedList);
-    savePersistentTestimonials(updatedList);
-    setAdminStatusToast('টেস্টিমোনিয়াল মুছে ফেলা হয়েছে!');
-    setTimeout(() => setAdminStatusToast(null), 3000);
+
+    setItemToDelete(null);
+    setTimeout(() => {
+      setAdminStatusToast(null);
+    }, 4000);
   };
 
-  const handleDeleteNoticeClick = (id: number) => {
-    if (onDeleteNotice) {
-      onDeleteNotice(id);
+  const handleDeleteTestimonialClick = (testimonialOrId: StudentTestimonial | number) => {
+    if (typeof testimonialOrId === 'number') {
+      const found = testimonials.find((t) => t.id === testimonialOrId);
+      setItemToDelete({
+        type: 'testimonial',
+        id: testimonialOrId,
+        title: found?.nameBn || found?.nameEn || `সাফল্যের গল্প #${testimonialOrId}`,
+        subtitle: found?.courseBn || found?.courseEn,
+      });
     } else {
-      setLocalNotices(localNotices.filter((n) => n.id !== id));
+      setItemToDelete({
+        type: 'testimonial',
+        id: testimonialOrId.id,
+        title: testimonialOrId.nameBn || testimonialOrId.nameEn,
+        subtitle: testimonialOrId.courseBn || testimonialOrId.courseEn,
+      });
+    }
+  };
+
+  const handleDeleteNoticeClick = (noticeOrId: NoticeItem | number) => {
+    if (typeof noticeOrId === 'number') {
+      const found = notices.find((n) => n.id === noticeOrId);
+      setItemToDelete({
+        type: 'notice',
+        id: noticeOrId,
+        title: found?.title || `Notice #${noticeOrId}`,
+        subtitle: found ? `ক্যাটাগরি: ${found.category} | তারিখ: ${found.date}` : undefined,
+      });
+    } else {
+      setItemToDelete({
+        type: 'notice',
+        id: noticeOrId.id,
+        title: noticeOrId.title,
+        subtitle: `ক্যাটাগরি: ${noticeOrId.category} | তারিখ: ${noticeOrId.date}`,
+      });
     }
   };
 
@@ -737,11 +817,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleDeleteStudentClick = (id: number) => {
-    if (onDeleteStudent) {
-      onDeleteStudent(id);
+  const handleDeleteStudentClick = (studentOrId: StudentAccount | number) => {
+    if (typeof studentOrId === 'number') {
+      const found = students.find((s) => s.id === studentOrId);
+      setItemToDelete({
+        type: 'student',
+        id: studentOrId,
+        title: found?.name || `Student #${studentOrId}`,
+        subtitle: found ? `রোল: ${found.rollNo} | কোর্স: ${found.course}` : undefined,
+      });
     } else {
-      setLocalStudents(localStudents.filter((s) => s.id !== id));
+      setItemToDelete({
+        type: 'student',
+        id: studentOrId.id,
+        title: studentOrId.name,
+        subtitle: `রোল: ${studentOrId.rollNo} | কোর্স: ${studentOrId.course}`,
+      });
     }
   };
 
@@ -914,9 +1005,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }, 4500);
   };
 
-  const handleDeleteJobAppClick = (id: number) => {
-    if (confirm('আপনি কি এই চাকুরীর আবেদনটি মুছে ফেলতে চান?')) {
-      onDeleteJobApplication?.(id);
+  const handleDeleteApplicantClick = (applicantOrId: ApplicantAccount | number) => {
+    if (typeof applicantOrId === 'number') {
+      const found = applicants.find((a) => a.id === applicantOrId);
+      setItemToDelete({
+        type: 'applicant',
+        id: applicantOrId,
+        title: found?.applicantName || `Applicant #${applicantOrId}`,
+        subtitle: found ? `মোবাইল: ${found.phone || 'N/A'} | রোল: ${found.rollNo || 'N/A'}` : undefined,
+      });
+    } else {
+      setItemToDelete({
+        type: 'applicant',
+        id: applicantOrId.id,
+        title: applicantOrId.applicantName || 'Applicant',
+        subtitle: `মোবাইল: ${applicantOrId.phone || 'N/A'} | পদ: ${applicantOrId.jobTitle || 'চাকুরী আবেদন'}`,
+      });
+    }
+  };
+
+  const handleDeleteJobAppClick = (appOrId: JobApplication | number) => {
+    if (typeof appOrId === 'number') {
+      const found = jobApplications.find((a) => a.id === appOrId);
+      setItemToDelete({
+        type: 'jobApp',
+        id: appOrId,
+        title: found ? `${found.postName} - ${found.applicantName}` : `Job Application #${appOrId}`,
+        subtitle: found ? `রোল: ${found.rollNo} | আবেদন তারিখ: ${found.appliedDate}` : undefined,
+      });
+    } else {
+      setItemToDelete({
+        type: 'jobApp',
+        id: appOrId.id,
+        title: `${appOrId.postName} - ${appOrId.applicantName}`,
+        subtitle: `রোল: ${appOrId.rollNo} | আবেদন তারিখ: ${appOrId.appliedDate}`,
+      });
     }
   };
 
@@ -2017,6 +2140,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <Key className="w-3 h-3 text-stone-500" />
                                 <span>Password</span>
                               </button>
+
+                              <button
+                                onClick={() => handleDeleteApplicantClick(app)}
+                                className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded text-[11px] font-semibold transition-colors cursor-pointer border border-stone-200 hover:border-rose-200 inline-flex items-center space-x-1"
+                                title="আবেদনকারীর প্রোফাইল ও তথ্য ডিলিট করুন"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -2707,7 +2838,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     <span>স্থায়ীভাবে সংরক্ষিত</span>
                                   </span>
                                   <span className="block text-[9px] text-stone-400 mt-0.5">
-                                    কখনোই ডিলিট হবে না
+                                    অ্যাডমিন কন্ট্রোলড
                                   </span>
                                 </td>
 
@@ -2729,14 +2860,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       >
                                         পাসওয়ার্ড পরিবর্তন
                                       </button>
+                                      <button
+                                        onClick={() => handleDeleteApplicantClick(cred.rawApplicant)}
+                                        className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer border border-stone-200 hover:border-rose-200"
+                                        title="অ্যাকাউন্ট ডিলিট করুন"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
                                     </>
                                   ) : (
-                                    <button
-                                      onClick={() => setSelectedStudentForEdit(cred.rawStudent)}
-                                      className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[10px] transition-colors cursor-pointer border border-blue-200"
-                                    >
-                                      এডিট / পাসওয়ার্ড
-                                    </button>
+                                    <>
+                                      <button
+                                        onClick={() => setSelectedStudentForEdit(cred.rawStudent)}
+                                        className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[10px] transition-colors cursor-pointer border border-blue-200"
+                                      >
+                                        এডিট / পাসওয়ার্ড
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteStudentClick(cred.rawStudent)}
+                                        className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer border border-stone-200 hover:border-rose-200"
+                                        title="শিক্ষার্থী প্রোফাইল ডিলিট করুন"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </>
                                   )}
                                 </td>
                               </tr>
@@ -3969,6 +4116,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onClose={() => setSelectedStudentForEdit(null)}
         student={selectedStudentForEdit}
         onSaveStudent={handleSaveStudentFromModal}
+        onDeleteStudent={(id) => handleDeleteStudentClick(id)}
       />
 
       {/* Applicant Quick Credentials & Password Reset Modal */}
@@ -3977,6 +4125,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onClose={() => setSelectedApplicantForEdit(null)}
         applicant={selectedApplicantForEdit}
         onSaveApplicant={handleSaveApplicantFromModal}
+        onDeleteApplicant={(id) => handleDeleteApplicantClick(id)}
       />
 
       {/* Applicant Full Bio-Data Form & Official PDF Copy Modal */}
@@ -4346,6 +4495,83 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {itemToDelete && (
+        <div
+          className="fixed inset-0 z-70 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setItemToDelete(null)}
+        >
+          <div
+            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-rose-200 overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-rose-600 to-rose-700 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm">ডিলিট নিশ্চিতকরণ</h3>
+                  <p className="text-[11px] text-rose-100">মুছে ফেলা সংক্রান্ত সতর্কতা</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setItemToDelete(null)}
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
+                <div className="font-bold text-rose-900 text-sm">{itemToDelete.title}</div>
+                {itemToDelete.subtitle && (
+                  <div className="text-stone-600 font-medium">{itemToDelete.subtitle}</div>
+                )}
+                <div className="text-[10px] text-rose-700 font-semibold pt-1">
+                  ধরন:{' '}
+                  {itemToDelete.type === 'notice'
+                    ? 'নোটিশ (Notice)'
+                    : itemToDelete.type === 'student'
+                    ? 'শিক্ষার্থী প্রোফাইল (Student Profile)'
+                    : itemToDelete.type === 'applicant'
+                    ? 'আবেদনকারী প্রোফাইল (Applicant Profile)'
+                    : itemToDelete.type === 'jobApp'
+                    ? 'চাকুরীর আবেদন (Job Application)'
+                    : 'সাফল্যের গল্প / রিভিউ'}
+                </div>
+              </div>
+
+              <p className="text-stone-600 leading-relaxed">
+                আপনি কি নিশ্চিত যে এই রেকর্ডটি সম্পূর্ণভাবে মুছে ফেলতে চান? এটি মুছে ফেললে ডাটাবেজ ও ওয়েবসাইট থেকে স্থায়ীভাবে অপসারিত হবে।
+              </p>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end space-x-2.5 pt-3 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setItemToDelete(null)}
+                  className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-semibold transition-colors cursor-pointer"
+                >
+                  বাতিল করুন
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>হ্যাঁ, মুছে ফেলুন</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
